@@ -133,7 +133,7 @@ class QuestListScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '次回: $nextRankランク',
+              '次回ランク',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 14,
