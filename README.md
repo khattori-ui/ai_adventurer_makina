@@ -1,4 +1,4 @@
-arkdown
+
 # AI冒険者マキナ (AI Adventurer Makina)
 AIと育てる冒険者RPG - Flutter製アプリケーション
 
@@ -17,18 +17,25 @@ AIと育てる冒険者RPG - Flutter製アプリケーション
 
 ターミナル(Terminal)アプリを開き、以下の順番で操作してください。
 
-### 手順①：フォルダに移動する
-まず「場所」を指定します。
-1. `cd` と入力し、**スペースキーを1回**押します。
-2. このフォルダをターミナル画面に**ドラッグ＆ドロップ**します。
-3. **Enterキー**を押します。
+### 手順①：ゲームをダウンロードする（初回のみ）
+GitHubから自分のパソコンにデータをコピーします。
+※デスクトップなど、分かりやすい場所に移動してから実行するのがおすすめです。
 
 ```bash
-cd [フォルダをここにドラッグ]
+git clone [https://github.com/y-aoki-accel/ai_rpg_makina.git](https://github.com/y-aoki-accel/ai_rpg_makina.git)
 
 ```
 
-### 手順②：部品をダウンロードする
+### 手順②：フォルダに移動する
+
+ダウンロードしたフォルダの中に入ります。
+
+```bash
+cd ai_rpg_makina
+
+```
+
+### 手順③：部品をダウンロードする
 
 アプリに必要なライブラリを取り込みます。
 
@@ -37,7 +44,7 @@ flutter pub get
 
 ```
 
-### 手順③：アプリを起動する
+### 手順④：アプリを起動する
 
 Macアプリとして起動します。
 
@@ -92,11 +99,6 @@ sudo gem install ffi -v 1.15.5
 
 これが成功したら、もう一度 `sudo gem install cocoapods` を行い、起動コマンドを試してください。
 
-### ケースC：「No pubspec.yaml file found」と出る
-
-**「場所」が間違っています。**
-ターミナルがフォルダの中にいません。手順①の `cd` コマンドからやり直してください。
-
 ---
 
 ## 🌐 どうしても動かないときは... (Fallback)
@@ -107,3 +109,17 @@ Macアプリとしての起動が難しい場合、Google Chrome（ブラウザ�
 flutter run -d chrome
 
 ```
+
+```
+
+### 変更した後の流れ
+書き換えたら、以下のコマンドでGitHubも更新しておいてくださいね。
+
+```bash
+git add README.md
+git commit -m "Update readme with clone instruction"
+git push
+
+```
+
+これでチームメンバーにURLを渡したとき、「おお、分かりやすい！」と感謝されること間違いなしです！

@@ -72,6 +72,12 @@ class Makina {
   double brave; // 勇敢(-100) ↔ 慎重(100)
   double dependent; // 甘え(-100) ↔ 自立(100)
   
+  // ギルドランク (F=0, E=1, D=2, C=3, B=4, A=5, S=6)
+  int guildRank;
+  
+  // 現在のランクでの成功数
+  int questSuccessCountForCurrentRank;
+  
   // 装備スロット
   Equipment? weapon;
   Equipment? armor;
@@ -86,7 +92,7 @@ class Makina {
   Quest? currentQuest;
   DateTime? questStartTime;
   
-  // 会話履歴（短期記憶）
+  // 会話履歴(短期記憶)
   List<ConversationMemory> recentMemories;
   
   Makina({
@@ -101,6 +107,8 @@ class Makina {
     this.intimacy = 50.0,
     this.brave = 0.0,
     this.dependent = 0.0,
+    this.guildRank = 0,
+    this.questSuccessCountForCurrentRank = 0,
     this.weapon,
     this.armor,
     this.shield,
@@ -142,7 +150,7 @@ class Makina {
     defense += 2;
   }
   
-  // 親密度を変更（0-100の範囲内）
+  // 親密度を変更(0-100の範囲内)
   void changeIntimacy(double delta) {
     intimacy = (intimacy + delta).clamp(0.0, 100.0);
   }
@@ -151,6 +159,21 @@ class Makina {
   void changePersonality(double braveChange, double dependentChange) {
     brave = (brave + braveChange).clamp(-100.0, 100.0);
     dependent = (dependent + dependentChange).clamp(-100.0, 100.0);
+  }
+  
+  // クエスト成功時の処理（ランクアップ判定含む）
+  void recordQuestSuccess() {
+    questSuccessCountForCurrentRank++;
+  }
+  
+  // ランクアップ処理
+  bool tryRankUp(int questsRequired) {
+    if (guildRank < 6 && questSuccessCountForCurrentRank >= questsRequired) {
+      guildRank++;
+      questSuccessCountForCurrentRank = 0;
+      return true;
+    }
+    return false;
   }
   
   // 会話記憶を追加
@@ -252,6 +275,8 @@ class Makina {
       'intimacy': intimacy,
       'brave': brave,
       'dependent': dependent,
+      'guildRank': guildRank,
+      'questSuccessCountForCurrentRank': questSuccessCountForCurrentRank,
       'weapon': weapon?.toJson(),
       'armor': armor?.toJson(),
       'shield': shield?.toJson(),
@@ -277,6 +302,8 @@ class Makina {
       intimacy: (json['intimacy'] ?? 50.0).toDouble(),
       brave: (json['brave'] ?? 0.0).toDouble(),
       dependent: (json['dependent'] ?? 0.0).toDouble(),
+      guildRank: json['guildRank'] ?? 0,
+      questSuccessCountForCurrentRank: json['questSuccessCountForCurrentRank'] ?? 0,
       weapon: json['weapon'] != null ? Equipment.fromJson(json['weapon']) : null,
       armor: json['armor'] != null ? Equipment.fromJson(json['armor']) : null,
       shield: json['shield'] != null ? Equipment.fromJson(json['shield']) : null,
@@ -334,6 +361,7 @@ class Quest {
   final String description;
   final int durationMinutes;
   final int difficulty;
+  final int requiredGuildRank; // 必要なギルドランク
   
   // 目標ステータス
   final int targetAttack;
@@ -356,6 +384,7 @@ class Quest {
     required this.description,
     required this.durationMinutes,
     required this.difficulty,
+    this.requiredGuildRank = 0,
     required this.targetAttack,
     required this.targetMagic,
     required this.targetSpeed,
@@ -367,7 +396,7 @@ class Quest {
     this.possibleDrops = const [],
   });
   
-  // クエストの成功率を計算（装備ボーナス込み）
+  // クエストの成功率を計算(装備ボーナス込み)
   double calculateSuccessRate(Makina makina) {
     // 各ステータスの達成度を計算
     List<double> ratios = [];
@@ -419,19 +448,11 @@ class Quest {
     }
     
     // スコアを成功率に変換
-    // score = 1.0 → 55%
-    // score = 0.5 → 20%
-    // score = 2.0 → 90%
-    // score < 0.3 → ほぼ0% (事実上不可能)
-    
-    // 低スコア時に急激に成功率が下がるように指数関数を使用
     double successRate;
     if (score < 0.3) {
-      // スコアが0.3未満の場合、ほぼ不可能
-      successRate = 0.01 * (score / 0.3); // 最大0.01%
+      successRate = 0.01 * (score / 0.3);
     } else {
-      // スコア0.3以上で線形に上昇
-      successRate = 0.01 + (score - 0.3) / 1.7 * 0.94; // 0.3で1%、1.0で55%、2.0で95%
+      successRate = 0.01 + (score - 0.3) / 1.7 * 0.94;
     }
     
     return successRate.clamp(0.0, 0.95);
@@ -444,6 +465,7 @@ class Quest {
       'description': description,
       'durationMinutes': durationMinutes,
       'difficulty': difficulty,
+      'requiredGuildRank': requiredGuildRank,
       'targetAttack': targetAttack,
       'targetMagic': targetMagic,
       'targetSpeed': targetSpeed,
@@ -463,6 +485,7 @@ class Quest {
       description: json['description'],
       durationMinutes: json['durationMinutes'],
       difficulty: json['difficulty'],
+      requiredGuildRank: json['requiredGuildRank'] ?? 0,
       targetAttack: json['targetAttack'],
       targetMagic: json['targetMagic'],
       targetSpeed: json['targetSpeed'],

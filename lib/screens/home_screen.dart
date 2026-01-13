@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
+import '../data/quest_data.dart';
 import 'quest_list_screen.dart';
 import 'conversation_screen.dart';
 import 'equipment_screen.dart';
@@ -48,9 +49,11 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Consumer<GameProvider>(
         builder: (context, provider, child) {
-          // 実績解放通知を表示
+          // ランクアップ通知を表示
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (provider.newlyUnlockedAchievement != null) {
+            if (provider.hasRankedUp) {
+              _showRankUpDialog(context, provider);
+            } else if (provider.newlyUnlockedAchievement != null) {
               _showAchievementUnlockedDialog(context, provider);
             }
           });
@@ -68,6 +71,8 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildMakinaCard(context, provider),
+                  const SizedBox(height: 20),
+                  _buildGuildRankCard(provider),
                   const SizedBox(height: 20),
                   _buildStatusCard(provider),
                   const SizedBox(height: 20),
@@ -100,7 +105,6 @@ class HomeScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // マキナの画像
             Container(
               width: 200,
               height: 200,
@@ -121,7 +125,6 @@ class HomeScreen extends StatelessWidget {
                   'assets/images/makina.png',
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) {
-                    // 画像が見つからない場合の代替表示
                     return Container(
                       decoration: BoxDecoration(
                         color: Colors.deepPurple.shade100,
@@ -157,7 +160,6 @@ class HomeScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // レベルと経験値バー
             Row(
               children: [
                 Text('Lv.${makina.level}', 
@@ -180,6 +182,79 @@ class HomeScreen extends StatelessWidget {
     );
   }
   
+  Widget _buildGuildRankCard(GameProvider provider) {
+    final makina = provider.makina;
+    final rankName = QuestData.getGuildRankName(makina.guildRank);
+    final questsRequired = QuestData.getQuestsRequiredForRankUp(makina.guildRank);
+    final progress = makina.questSuccessCountForCurrentRank;
+    
+    return Card(
+      elevation: 2,
+      color: Colors.deepPurple.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.military_tech, color: Colors.deepPurple),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'ギルドランク',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    rankName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (makina.guildRank < 6) ...[
+              const SizedBox(height: 12),
+              Text(
+                '次のランクまで: $progress / $questsRequired',
+                style: TextStyle(color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: progress / questsRequired,
+                backgroundColor: Colors.grey.shade300,
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              const Text(
+                '最高ランク到達！',
+                style: TextStyle(
+                  color: Colors.amber,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
   Widget _buildStatusCard(GameProvider provider) {
     final makina = provider.makina;
     
@@ -195,11 +270,11 @@ class HomeScreen extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            _buildStatRow('こうげき', makina.attack, Colors.red),
-            _buildStatRow('まほう', makina.magic, Colors.blue),
-            _buildStatRow('すばやさ', makina.speed, Colors.green),
-            _buildStatRow('かしこさ', makina.intelligence, Colors.purple),
-            _buildStatRow('ぼうぎょ', makina.defense, Colors.orange),
+            _buildStatRow('こうげき', makina.effectiveAttack, Colors.red),
+            _buildStatRow('まほう', makina.effectiveMagic, Colors.blue),
+            _buildStatRow('すばやさ', makina.effectiveSpeed, Colors.green),
+            _buildStatRow('かしこさ', makina.effectiveIntelligence, Colors.purple),
+            _buildStatRow('ぼうぎょ', makina.effectiveDefense, Colors.orange),
           ],
         ),
       ),
@@ -516,7 +591,7 @@ class HomeScreen extends StatelessWidget {
                 const Icon(Icons.star, color: Colors.amber, size: 32),
                 const SizedBox(width: 8),
                 const Text(
-                  'アイテムをゲット！',
+                  'アイテムをゲット!',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -613,6 +688,58 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: color.withOpacity(0.2),
       padding: EdgeInsets.zero,
       visualDensity: VisualDensity.compact,
+    );
+  }
+  
+  void _showRankUpDialog(BuildContext context, GameProvider provider) {
+    final rankName = QuestData.getGuildRankName(provider.makina.guildRank);
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.amber.shade50,
+        title: Row(
+          children: [
+            const Icon(Icons.military_tech, color: Colors.amber, size: 32),
+            const SizedBox(width: 8),
+            const Text('ランクアップ！'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '🎉',
+              style: TextStyle(fontSize: 64),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '$rankName ランクに昇格！',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '新しいクエストに挑戦できるようになりました！',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              provider.clearMessage();
+              Navigator.pop(context);
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
   

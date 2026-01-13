@@ -3,12 +3,14 @@ import '../models/makina.dart';
 class QuestData {
   static List<Quest> getAllQuests() {
     return [
+      // Fランク (0)
       Quest(
         id: 'quest_001',
         name: '薬草採取',
         description: '森で薬草を集めてくる簡単な仕事です',
         durationMinutes: 5,
         difficulty: 1,
+        requiredGuildRank: 0, // Fランク
         targetAttack: 5,
         targetMagic: 0,
         targetSpeed: 8,
@@ -25,6 +27,7 @@ class QuestData {
         description: '森で食用きのこを採集する',
         durationMinutes: 5,
         difficulty: 1,
+        requiredGuildRank: 0, // Fランク
         targetAttack: 0,
         targetMagic: 0,
         targetSpeed: 10,
@@ -41,6 +44,7 @@ class QuestData {
         description: '商人の荷物を隣町まで運ぶ',
         durationMinutes: 8,
         difficulty: 1,
+        requiredGuildRank: 0, // Fランク
         targetAttack: 3,
         targetMagic: 0,
         targetSpeed: 5,
@@ -51,12 +55,15 @@ class QuestData {
         dropRate: 0.12,
         possibleDrops: const ['iron_sword', 'leather_armor', 'leather_boots'],
       ),
+      
+      // Eランク (1)
       Quest(
         id: 'quest_004',
         name: 'スライム退治',
         description: '畑を荒らすスライムを倒してほしい',
         durationMinutes: 10,
         difficulty: 2,
+        requiredGuildRank: 1, // Eランク
         targetAttack: 12,
         targetMagic: 8,
         targetSpeed: 10,
@@ -73,6 +80,7 @@ class QuestData {
         description: '森で迷子になった子供を探す',
         durationMinutes: 15,
         difficulty: 2,
+        requiredGuildRank: 1, // Eランク
         targetAttack: 8,
         targetMagic: 5,
         targetSpeed: 15,
@@ -89,6 +97,7 @@ class QuestData {
         description: '村を襲うオオカミの群れを撃退する',
         durationMinutes: 15,
         difficulty: 2,
+        requiredGuildRank: 1, // Eランク
         targetAttack: 15,
         targetMagic: 0,
         targetSpeed: 12,
@@ -99,12 +108,15 @@ class QuestData {
         dropRate: 0.18,
         possibleDrops: const ['steel_sword', 'chain_armor'],
       ),
+      
+      // Dランク (2)
       Quest(
         id: 'quest_007',
         name: '盗賊団の追跡',
         description: '商隊を襲った盗賊団を追跡する',
         durationMinutes: 20,
         difficulty: 3,
+        requiredGuildRank: 2, // Dランク
         targetAttack: 18,
         targetMagic: 10,
         targetSpeed: 18,
@@ -121,6 +133,7 @@ class QuestData {
         description: '異変が報告された地下水路を調査する',
         durationMinutes: 20,
         difficulty: 3,
+        requiredGuildRank: 2, // Dランク
         targetAttack: 15,
         targetMagic: 15,
         targetSpeed: 10,
@@ -137,6 +150,7 @@ class QuestData {
         description: '近隣を脅かすゴブリンの巣を壊滅させる',
         durationMinutes: 30,
         difficulty: 3,
+        requiredGuildRank: 2, // Dランク
         targetAttack: 20,
         targetMagic: 15,
         targetSpeed: 18,
@@ -147,12 +161,15 @@ class QuestData {
         dropRate: 0.25,
         possibleDrops: const ['mithril_sword', 'iron_shield', 'chain_armor'],
       ),
+      
+      // Cランク (3)
       Quest(
         id: 'quest_010',
         name: '呪われた館の調査',
         description: '幽霊が出ると噂の館を調査する',
         durationMinutes: 30,
         difficulty: 4,
+        requiredGuildRank: 3, // Cランク
         targetAttack: 12,
         targetMagic: 25,
         targetSpeed: 15,
@@ -169,6 +186,7 @@ class QuestData {
         description: '謎に包まれた古代遺跡を調査する',
         durationMinutes: 45,
         difficulty: 4,
+        requiredGuildRank: 3, // Cランク
         targetAttack: 15,
         targetMagic: 25,
         targetSpeed: 15,
@@ -185,6 +203,7 @@ class QuestData {
         description: '橋を占拠する凶暴なトロールを倒す',
         durationMinutes: 45,
         difficulty: 4,
+        requiredGuildRank: 3, // Cランク
         targetAttack: 28,
         targetMagic: 15,
         targetSpeed: 18,
@@ -195,12 +214,15 @@ class QuestData {
         dropRate: 0.28,
         possibleDrops: const ['mithril_sword', 'iron_shield', 'chain_armor'],
       ),
+      
+      // Bランク (4)
       Quest(
         id: 'quest_013',
         name: 'ワイバーン討伐',
         description: '空を飛ぶ魔獣ワイバーンを討伐する',
         durationMinutes: 50,
         difficulty: 5,
+        requiredGuildRank: 4, // Bランク
         targetAttack: 30,
         targetMagic: 25,
         targetSpeed: 28,
@@ -217,6 +239,7 @@ class QuestData {
         description: '暴走した魔法使いの塔を攻略する',
         durationMinutes: 50,
         difficulty: 5,
+        requiredGuildRank: 4, // Bランク
         targetAttack: 20,
         targetMagic: 35,
         targetSpeed: 22,
@@ -233,6 +256,7 @@ class QuestData {
         description: '山に住み着いた凶暴なドラゴンを倒す',
         durationMinutes: 60,
         difficulty: 5,
+        requiredGuildRank: 4, // Bランク
         targetAttack: 35,
         targetMagic: 30,
         targetSpeed: 25,
@@ -243,12 +267,15 @@ class QuestData {
         dropRate: 0.4,
         possibleDrops: const ['dragon_slayer', 'dragon_scale_armor', 'flame_shield'],
       ),
+      
+      // Aランク (5)
       Quest(
         id: 'quest_016',
         name: '魔獣の森制圧',
         description: '魔獣が跋扈する危険な森を制圧する',
         durationMinutes: 70,
         difficulty: 6,
+        requiredGuildRank: 5, // Aランク
         targetAttack: 38,
         targetMagic: 35,
         targetSpeed: 32,
@@ -265,6 +292,7 @@ class QuestData {
         description: '邪悪な闇の教団のアジトを壊滅させる',
         durationMinutes: 80,
         difficulty: 6,
+        requiredGuildRank: 5, // Aランク
         targetAttack: 40,
         targetMagic: 38,
         targetSpeed: 30,
@@ -281,6 +309,7 @@ class QuestData {
         description: '魔王軍の幹部が率いる軍勢を撃破する',
         durationMinutes: 90,
         difficulty: 6,
+        requiredGuildRank: 5, // Aランク
         targetAttack: 45,
         targetMagic: 40,
         targetSpeed: 35,
@@ -291,12 +320,15 @@ class QuestData {
         dropRate: 0.5,
         possibleDrops: const ['demon_blade', 'dark_armor', 'cursed_shield', 'shadow_boots'],
       ),
+      
+      // Sランク (6)
       Quest(
         id: 'quest_019',
-        name: '古代龍討伐',
-        description: '伝説の古代龍を討伐する究極の挑戦',
+        name: '古代竜討伐',
+        description: '伝説の古代竜を討伐する究極の挑戦',
         durationMinutes: 100,
         difficulty: 8,
+        requiredGuildRank: 6, // Sランク
         targetAttack: 55,
         targetMagic: 55,
         targetSpeed: 45,
@@ -313,6 +345,7 @@ class QuestData {
         description: '世界を脅かす魔王を討伐する最終決戦',
         durationMinutes: 120,
         difficulty: 10,
+        requiredGuildRank: 6, // Sランク
         targetAttack: 60,
         targetMagic: 60,
         targetSpeed: 50,
@@ -331,6 +364,33 @@ class QuestData {
       return getAllQuests().firstWhere((q) => q.id == id);
     } catch (e) {
       return null;
+    }
+  }
+  
+  // ギルドランク名を取得
+  static String getGuildRankName(int rank) {
+    switch (rank) {
+      case 0: return 'F';
+      case 1: return 'E';
+      case 2: return 'D';
+      case 3: return 'C';
+      case 4: return 'B';
+      case 5: return 'A';
+      case 6: return 'S';
+      default: return 'F';
+    }
+  }
+  
+  // 次のランクに必要なクエスト成功数を取得
+  static int getQuestsRequiredForRankUp(int currentRank) {
+    switch (currentRank) {
+      case 0: return 3;  // F→E: 3回
+      case 1: return 5;  // E→D: 5回
+      case 2: return 7;  // D→C: 7回
+      case 3: return 10; // C→B: 10回
+      case 4: return 15; // B→A: 15回
+      case 5: return 20; // A→S: 20回
+      default: return 999; // Sランクは最高ランク
     }
   }
   

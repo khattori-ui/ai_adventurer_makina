@@ -14,15 +14,16 @@ class GameProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _currentMessage;
   Timer? _questTimer;
-  Equipment? _droppedEquipment; // ドロップした装備
-  bool _hasSeenPrologue = false; // プロローグを見たか
-  bool _hasSeenTutorial = false; // チュートリアルを見たか
-  int _questCompletedCount = 0; // クリアしたクエスト数
-  int _consecutiveSuccess = 0; // 連続成功回数
-  int _consecutiveFail = 0; // 連続失敗回数
-  List<String> _clearedQuestIds = []; // クリアしたクエストID
-  List<Achievement> _achievements = []; // 実績リスト
-  Achievement? _newlyUnlockedAchievement; // 新しく解放された実績
+  Equipment? _droppedEquipment;
+  bool _hasSeenPrologue = false;
+  bool _hasSeenTutorial = false;
+  int _questCompletedCount = 0;
+  int _consecutiveSuccess = 0;
+  int _consecutiveFail = 0;
+  List<String> _clearedQuestIds = [];
+  List<Achievement> _achievements = [];
+  Achievement? _newlyUnlockedAchievement;
+  bool _hasRankedUp = false; // ランクアップしたかどうか
   
   Makina get makina => _makina;
   bool get isLoading => _isLoading;
@@ -34,6 +35,7 @@ class GameProvider extends ChangeNotifier {
   List<Achievement> get achievements => _achievements;
   Achievement? get newlyUnlockedAchievement => _newlyUnlockedAchievement;
   bool get isOnQuest => _makina.currentQuest != null;
+  bool get hasRankedUp => _hasRankedUp;
   
   // 残り時間を計算
   Duration? get remainingTime {
@@ -64,26 +66,22 @@ class GameProvider extends ChangeNotifier {
     if (savedMakina != null) {
       _makina = savedMakina;
       
-      // クエスト中だった場合、タイマーを再開
       if (_makina.currentQuest != null && _makina.questStartTime != null) {
         _startQuestTimer();
       }
     }
     
-    // ストーリーフラグを読み込み
     _hasSeenPrologue = prefs.getBool('hasSeenPrologue') ?? false;
     _hasSeenTutorial = prefs.getBool('hasSeenTutorial') ?? false;
     _questCompletedCount = prefs.getInt('questCompletedCount') ?? 0;
     _consecutiveSuccess = prefs.getInt('consecutiveSuccess') ?? 0;
     _consecutiveFail = prefs.getInt('consecutiveFail') ?? 0;
     
-    // クリア済みクエストIDを読み込み
     final clearedQuestsJson = prefs.getString('clearedQuests');
     if (clearedQuestsJson != null) {
       _clearedQuestIds = List<String>.from(jsonDecode(clearedQuestsJson));
     }
     
-    // 実績を読み込み
     _loadAchievements(prefs);
     
     _isLoading = false;
@@ -92,6 +90,11 @@ class GameProvider extends ChangeNotifier {
   
   // クエストを開始
   Future<void> startQuest(Quest quest) async {
+    // ランク制限チェック
+    if (_makina.guildRank < quest.requiredGuildRank) {
+      return; // 開始できない
+    }
+    
     _makina.currentQuest = quest;
     _makina.questStartTime = DateTime.now();
     await _saveMakina();
@@ -121,6 +124,7 @@ class GameProvider extends ChangeNotifier {
     if (_makina.currentQuest == null) return;
     
     _isLoading = true;
+    _hasRankedUp = false;
     notifyListeners();
     
     final quest = _makina.currentQuest!;
@@ -139,7 +143,6 @@ class GameProvider extends ChangeNotifier {
     if (success && quest.possibleDrops.isNotEmpty) {
       final random = Random();
       if (random.nextDouble() < quest.dropRate) {
-        // ドロップ成功！ランダムに1つ選択
         final dropId = quest.possibleDrops[random.nextInt(quest.possibleDrops.length)];
         final equipment = QuestData.getEquipmentById(dropId);
         if (equipment != null) {
@@ -176,7 +179,15 @@ class GameProvider extends ChangeNotifier {
       _consecutiveSuccess++;
       _consecutiveFail = 0;
       
-      // クリアしたクエストIDを記録
+      // ランク進捗を記録
+      _makina.recordQuestSuccess();
+      
+      // ランクアップ判定
+      final questsRequired = QuestData.getQuestsRequiredForRankUp(_makina.guildRank);
+      if (_makina.tryRankUp(questsRequired)) {
+        _hasRankedUp = true;
+      }
+      
       if (!_clearedQuestIds.contains(quest.id)) {
         _clearedQuestIds.add(quest.id);
       }
@@ -211,7 +222,6 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
     
     try {
-      // AI応答を生成
       final result = await AIService.generateResponse(
         makina: _makina,
         playerMessage: playerMessage,
@@ -221,14 +231,12 @@ class GameProvider extends ChangeNotifier {
       
       final response = result['response'] as String;
       
-      // 親密度と性格を更新
       _makina.changeIntimacy(result['intimacyChange'] as double);
       _makina.changePersonality(
         result['braveChange'] as double,
         result['dependentChange'] as double,
       );
       
-      // 会話記憶を追加
       _makina.addMemory(playerMessage, response);
       
       _currentMessage = response;
@@ -247,6 +255,7 @@ class GameProvider extends ChangeNotifier {
   void clearMessage() {
     _currentMessage = null;
     _droppedEquipment = null;
+    _hasRankedUp = false;
     notifyListeners();
   }
   
@@ -264,8 +273,15 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
   
-  // クエスト一覧を取得
+  // クエスト一覧を取得（ランク制限付き）
   List<Quest> getAvailableQuests() {
+    return QuestData.getAllQuests()
+        .where((quest) => quest.requiredGuildRank <= _makina.guildRank)
+        .toList();
+  }
+  
+  // すべてのクエストを取得（ロック状態含む）
+  List<Quest> getAllQuestsWithLockStatus() {
     return QuestData.getAllQuests();
   }
   
@@ -288,6 +304,7 @@ class GameProvider extends ChangeNotifier {
     _hasSeenPrologue = false;
     _hasSeenTutorial = false;
     _questCompletedCount = 0;
+    _hasRankedUp = false;
     _questTimer?.cancel();
     notifyListeners();
   }
@@ -362,25 +379,21 @@ class GameProvider extends ChangeNotifier {
   
   // 実績チェック
   Future<void> _checkAchievements(Quest quest, bool success, double successRate) async {
-    // 初めてのクエスト成功
     if (success && _questCompletedCount == 1) {
       await _unlockAchievement('first_quest');
     }
     
-    // クエスト成功数
     if (success) {
       if (_questCompletedCount >= 10) await _unlockAchievement('quest_10');
       if (_questCompletedCount >= 50) await _unlockAchievement('quest_50');
       if (_questCompletedCount >= 100) await _unlockAchievement('quest_100');
     }
     
-    // レベル到達
     if (_makina.level >= 5) await _unlockAchievement('level_5');
     if (_makina.level >= 10) await _unlockAchievement('level_10');
     if (_makina.level >= 20) await _unlockAchievement('level_20');
     if (_makina.level >= 30) await _unlockAchievement('level_30');
     
-    // 装備
     if (_makina.inventory.isNotEmpty || 
         _makina.weapon != null || 
         _makina.armor != null ||
@@ -390,7 +403,6 @@ class GameProvider extends ChangeNotifier {
       await _unlockAchievement('first_equipment');
     }
     
-    // 完全武装
     if (_makina.weapon != null &&
         _makina.armor != null &&
         _makina.shield != null &&
@@ -399,7 +411,6 @@ class GameProvider extends ChangeNotifier {
       await _unlockAchievement('full_equipment');
     }
     
-    // エピック装備
     bool hasEpic = false;
     if (_makina.weapon?.rarity == 3) hasEpic = true;
     if (_makina.armor?.rarity == 3) hasEpic = true;
@@ -411,37 +422,29 @@ class GameProvider extends ChangeNotifier {
     }
     if (hasEpic) await _unlockAchievement('legendary_equipment');
     
-    // 親密度
     if (_makina.intimacy >= 80) await _unlockAchievement('intimacy_80');
     if (_makina.intimacy >= 100) await _unlockAchievement('intimacy_100');
     
-    // 魔王討伐
     if (success && quest.id == 'quest_020') {
       await _unlockAchievement('maou_clear');
     }
     
-    // 全クエストクリア
     if (_clearedQuestIds.length >= 20) {
       await _unlockAchievement('all_quest_clear');
     }
     
-    // 面白い実績
-    // レベル20以上で薬草採取失敗
     if (!success && quest.id == 'quest_001' && _makina.level >= 20) {
       await _unlockAchievement('high_level_herb_fail');
     }
     
-    // 成功率5%以下で成功
     if (success && successRate <= 0.05) {
       await _unlockAchievement('impossible_success');
     }
     
-    // 10連続失敗
     if (_consecutiveFail >= 10) {
       await _unlockAchievement('ten_fail_streak');
     }
     
-    // 10連続成功
     if (_consecutiveSuccess >= 10) {
       await _unlockAchievement('ten_success_streak');
     }
