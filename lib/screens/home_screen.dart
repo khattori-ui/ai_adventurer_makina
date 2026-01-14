@@ -49,7 +49,6 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Consumer<GameProvider>(
         builder: (context, provider, child) {
-          // ランクアップ通知を表示
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (provider.hasRankedUp) {
               _showRankUpDialog(context, provider);
@@ -57,13 +56,13 @@ class HomeScreen extends StatelessWidget {
               _showAchievementUnlockedDialog(context, provider);
             }
           });
-          
+
           if (provider.isLoading) {
             return const Center(
               child: CircularProgressIndicator(),
             );
           }
-          
+
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -95,10 +94,10 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildMakinaCard(BuildContext context, GameProvider provider) {
     final makina = provider.makina;
-    
+
     return Card(
       elevation: 4,
       child: Padding(
@@ -144,8 +143,8 @@ class HomeScreen extends StatelessWidget {
             Text(
               'マキナ',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 8),
             Row(
@@ -162,14 +161,15 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Text('Lv.${makina.level}', 
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Lv.${makina.level}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: LinearProgressIndicator(
                     value: makina.experience / makina.experienceToNextLevel,
                     backgroundColor: Colors.grey.shade300,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(Colors.deepPurple),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -181,16 +181,17 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildGuildRankCard(GameProvider provider) {
     final makina = provider.makina;
     final rankName = QuestData.getGuildRankName(makina.guildRank);
-    final questsRequired = QuestData.getQuestsRequiredForRankUp(makina.guildRank);
+    final questsRequired =
+        QuestData.getQuestsRequiredForRankUp(makina.guildRank);
     final progress = makina.questSuccessCountForCurrentRank;
-    final nextRankName = makina.guildRank < 6 
-        ? QuestData.getGuildRankName(makina.guildRank + 1) 
+    final nextRankName = makina.guildRank < 6
+        ? QuestData.getGuildRankName(makina.guildRank + 1)
         : 'MAX';
-    
+
     return Card(
       elevation: 2,
       color: Colors.deepPurple.shade50,
@@ -208,12 +209,14 @@ class HomeScreen extends StatelessWidget {
                     const SizedBox(width: 8),
                     const Text(
                       'ギルドランク',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.deepPurple,
                     borderRadius: BorderRadius.circular(20),
@@ -252,7 +255,7 @@ class HomeScreen extends StatelessWidget {
             ] else ...[
               const SizedBox(height: 12),
               const Text(
-                '最高ランク到達！',
+                '最高ランク到達!',
                 style: TextStyle(
                   color: Colors.amber,
                   fontSize: 16,
@@ -265,10 +268,10 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildStatusCard(GameProvider provider) {
     final makina = provider.makina;
-    
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -291,7 +294,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildStatRow(String name, int value, Color color) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -321,10 +324,10 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildPersonalityCard(GameProvider provider) {
     final makina = provider.makina;
-    
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -338,16 +341,16 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _buildPersonalityBar(
-              '勇敢', 
-              '慎重', 
+              '勇敢',
+              '慎重',
               makina.brave,
               Colors.red,
               Colors.blue,
             ),
             const SizedBox(height: 8),
             _buildPersonalityBar(
-              '甘え', 
-              '自立', 
+              '甘え',
+              '自立',
               makina.dependent,
               Colors.pink,
               Colors.teal,
@@ -357,7 +360,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildPersonalityBar(
     String leftLabel,
     String rightLabel,
@@ -379,7 +382,7 @@ class HomeScreen extends StatelessWidget {
           builder: (context, constraints) {
             final barWidth = constraints.maxWidth;
             final position = ((value + 100) / 200) * barWidth;
-            
+
             return Stack(
               children: [
                 Container(
@@ -411,13 +414,13 @@ class HomeScreen extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildActionButtons(BuildContext context, GameProvider provider) {
     if (provider.isOnQuest) {
       final remaining = provider.remainingTime;
       final minutes = remaining?.inMinutes ?? 0;
       final seconds = (remaining?.inSeconds ?? 0) % 60;
-      
+
       return Card(
         color: Colors.orange.shade100,
         child: Padding(
@@ -443,7 +446,7 @@ class HomeScreen extends StatelessWidget {
         ),
       );
     }
-    
+
     return Column(
       children: [
         ElevatedButton.icon(
@@ -504,14 +507,16 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: provider.currentMessage == null ? null : () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ConversationScreen(),
-              ),
-            );
-          },
+          onPressed: provider.currentMessage == null
+              ? null
+              : () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ConversationScreen(),
+                    ),
+                  );
+                },
           icon: const Icon(Icons.chat),
           label: const Text('マキナと話す'),
           style: OutlinedButton.styleFrom(
@@ -522,7 +527,7 @@ class HomeScreen extends StatelessWidget {
       ],
     );
   }
-  
+
   Widget _buildMessageCard(BuildContext context, GameProvider provider) {
     return Card(
       color: Colors.blue.shade50,
@@ -566,12 +571,12 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildDropCard(BuildContext context, GameProvider provider) {
     final equipment = provider.droppedEquipment!;
     Color rarityColor;
     String rarityText;
-    
+
     switch (equipment.rarity) {
       case 1:
         rarityColor = Colors.grey.shade700;
@@ -589,7 +594,7 @@ class HomeScreen extends StatelessWidget {
         rarityColor = Colors.black;
         rarityText = '不明';
     }
-    
+
     return Card(
       color: Colors.amber.shade50,
       child: Padding(
@@ -635,7 +640,8 @@ class HomeScreen extends StatelessWidget {
                       Chip(
                         label: Text(
                           rarityText,
-                          style: const TextStyle(color: Colors.white, fontSize: 10),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 10),
                         ),
                         backgroundColor: rarityColor,
                         padding: EdgeInsets.zero,
@@ -667,7 +673,7 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildEquipmentBonus(equipment) {
     List<Widget> bonuses = [];
     if (equipment.attackBonus > 0) {
@@ -680,19 +686,21 @@ class HomeScreen extends StatelessWidget {
       bonuses.add(_buildBonusChip('速さ+${equipment.speedBonus}', Colors.green));
     }
     if (equipment.intelligenceBonus > 0) {
-      bonuses.add(_buildBonusChip('賢さ+${equipment.intelligenceBonus}', Colors.purple));
+      bonuses.add(
+          _buildBonusChip('賢さ+${equipment.intelligenceBonus}', Colors.purple));
     }
     if (equipment.defenseBonus > 0) {
-      bonuses.add(_buildBonusChip('防御+${equipment.defenseBonus}', Colors.orange));
+      bonuses
+          .add(_buildBonusChip('防御+${equipment.defenseBonus}', Colors.orange));
     }
-    
+
     return Wrap(
       spacing: 8,
       runSpacing: 4,
       children: bonuses,
     );
   }
-  
+
   Widget _buildBonusChip(String text, Color color) {
     return Chip(
       label: Text(text, style: const TextStyle(fontSize: 12)),
@@ -701,10 +709,10 @@ class HomeScreen extends StatelessWidget {
       visualDensity: VisualDensity.compact,
     );
   }
-  
+
   void _showRankUpDialog(BuildContext context, GameProvider provider) {
     final rankName = QuestData.getGuildRankName(provider.makina.guildRank);
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -714,7 +722,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             const Icon(Icons.military_tech, color: Colors.amber, size: 32),
             const SizedBox(width: 8),
-            const Text('ランクアップ！'),
+            const Text('ランクアップ!'),
           ],
         ),
         content: Column(
@@ -726,7 +734,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              '$rankName ランクに昇格！',
+              '$rankName ランクに昇格!',
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -735,7 +743,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              '新しいクエストに挑戦できるようになりました！',
+              '新しいクエストに挑戦できるようになりました!',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14),
             ),
@@ -753,10 +761,11 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
-  void _showAchievementUnlockedDialog(BuildContext context, GameProvider provider) {
+
+  void _showAchievementUnlockedDialog(
+      BuildContext context, GameProvider provider) {
     final achievement = provider.newlyUnlockedAchievement!;
-    
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -766,7 +775,7 @@ class HomeScreen extends StatelessWidget {
           children: [
             const Icon(Icons.emoji_events, color: Colors.amber, size: 32),
             const SizedBox(width: 8),
-            const Text('実績解放！'),
+            const Text('実績解放!'),
           ],
         ),
         content: Column(
@@ -805,13 +814,13 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   void _showResetDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('ゲームをリセット'),
-        content: const Text('本当にゲームをリセットしますか？すべてのデータが削除されます。'),
+        content: const Text('本当にゲームをリセットしますか?すべてのデータが削除されます。'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

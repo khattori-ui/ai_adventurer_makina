@@ -16,33 +16,57 @@ class QuestListScreen extends StatelessWidget {
       ),
       body: Consumer<GameProvider>(
         builder: (context, provider, child) {
-          final allQuests = provider.getAllQuestsWithLockStatus();
+          // ★変更: 受託可能なクエストのみをフィルタリング
+          final availableQuests = provider.getAvailableQuests();
           final currentRank = provider.makina.guildRank;
-          
+
           return Column(
             children: [
               // ランク情報カード
               _buildRankInfoCard(provider),
-              
+
               // クエストリスト
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: allQuests.length,
-                  itemBuilder: (context, index) {
-                    final quest = allQuests[index];
-                    final successRate = quest.calculateSuccessRate(provider.makina);
-                    final isLocked = quest.requiredGuildRank > currentRank;
-                    
-                    return _buildQuestCard(
-                      context, 
-                      provider, 
-                      quest, 
-                      successRate,
-                      isLocked,
-                    );
-                  },
-                ),
+                child: availableQuests.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.lock,
+                                size: 64,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '受託可能なクエストがありません',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: availableQuests.length,
+                        itemBuilder: (context, index) {
+                          final quest = availableQuests[index];
+                          final successRate =
+                              quest.calculateSuccessRate(provider.makina);
+
+                          return _buildQuestCard(
+                            context,
+                            provider,
+                            quest,
+                            successRate,
+                          );
+                        },
+                      ),
               ),
             ],
           );
@@ -50,16 +74,17 @@ class QuestListScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildRankInfoCard(GameProvider provider) {
     final makina = provider.makina;
     final rankName = QuestData.getGuildRankName(makina.guildRank);
-    final questsRequired = QuestData.getQuestsRequiredForRankUp(makina.guildRank);
+    final questsRequired =
+        QuestData.getQuestsRequiredForRankUp(makina.guildRank);
     final progress = makina.questSuccessCountForCurrentRank;
-    final nextRankName = makina.guildRank < 6 
-        ? QuestData.getGuildRankName(makina.guildRank + 1) 
+    final nextRankName = makina.guildRank < 6
+        ? QuestData.getGuildRankName(makina.guildRank + 1)
         : 'MAX';
-    
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
@@ -133,7 +158,7 @@ class QuestListScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '$rankName ランクのクエストをクリアしよう！',
+              '$rankName ランクのクエストをクリアしよう!',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 12,
@@ -143,7 +168,7 @@ class QuestListScreen extends StatelessWidget {
           ] else ...[
             const SizedBox(height: 8),
             const Text(
-              '最高ランク到達！',
+              '最高ランク到達!',
               style: TextStyle(
                 color: Colors.amber,
                 fontSize: 16,
@@ -155,19 +180,17 @@ class QuestListScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildQuestCard(
     BuildContext context,
     GameProvider provider,
     Quest quest,
     double successRate,
-    bool isLocked,
   ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      color: isLocked ? Colors.grey.shade300 : Colors.white,
       child: InkWell(
-        onTap: isLocked ? null : () => _showQuestDetail(context, provider, quest, successRate),
+        onTap: () => _showQuestDetail(context, provider, quest, successRate),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -177,129 +200,100 @@ class QuestListScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Row(
-                      children: [
-                        if (isLocked)
-                          const Padding(
-                            padding: EdgeInsets.only(right: 8),
-                            child: Icon(Icons.lock, color: Colors.grey),
-                          ),
-                        Expanded(
-                          child: Text(
-                            quest.name,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: isLocked ? Colors.grey : Colors.black,
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      quest.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   _buildDifficultyChip(quest.difficulty),
                 ],
               ),
               const SizedBox(height: 4),
-              _buildRankRequirementChip(quest.requiredGuildRank, isLocked),
+              _buildRankRequirementChip(quest.requiredGuildRank),
               const SizedBox(height: 8),
               Text(
                 quest.description,
                 style: TextStyle(
-                  color: isLocked ? Colors.grey.shade600 : Colors.grey.shade700,
+                  color: Colors.grey.shade700,
                 ),
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Icon(Icons.access_time, size: 16, color: isLocked ? Colors.grey : Colors.grey.shade600),
+                  Icon(Icons.access_time,
+                      size: 16, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
-                  Text(
-                    '${quest.durationMinutes}分',
-                    style: TextStyle(color: isLocked ? Colors.grey : Colors.black),
-                  ),
+                  Text('${quest.durationMinutes}分'),
                   const SizedBox(width: 16),
-                  Icon(Icons.star, size: 16, color: isLocked ? Colors.grey : Colors.amber),
+                  const Icon(Icons.star, size: 16, color: Colors.amber),
                   const SizedBox(width: 4),
-                  Text(
-                    '${quest.experienceReward} EXP',
-                    style: TextStyle(color: isLocked ? Colors.grey : Colors.black),
-                  ),
+                  Text('${quest.experienceReward} EXP'),
                 ],
               ),
-              if (!isLocked) ...[
-                const SizedBox(height: 8),
-                LinearProgressIndicator(
-                  value: successRate,
-                  backgroundColor: Colors.red.shade100,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    _getSuccessRateColor(successRate),
-                  ),
+              const SizedBox(height: 8),
+              LinearProgressIndicator(
+                value: successRate,
+                backgroundColor: Colors.red.shade100,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  _getSuccessRateColor(successRate),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '成功率: ${(successRate * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: _getSuccessRateColor(successRate),
-                    fontWeight: FontWeight.bold,
-                  ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '成功率: ${(successRate * 100).toStringAsFixed(0)}%',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _getSuccessRateColor(successRate),
+                  fontWeight: FontWeight.bold,
                 ),
-              ] else ...[
-                const SizedBox(height: 8),
-                Text(
-                  '${QuestData.getGuildRankName(quest.requiredGuildRank)}ランクで解放',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
+              ),
             ],
           ),
         ),
       ),
     );
   }
-  
-  Widget _buildRankRequirementChip(int requiredRank, bool isLocked) {
+
+  Widget _buildRankRequirementChip(int requiredRank) {
     final rankName = QuestData.getGuildRankName(requiredRank);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isLocked ? Colors.grey.shade400 : Colors.deepPurple.shade100,
+        color: Colors.deepPurple.shade100,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isLocked ? Colors.grey.shade600 : Colors.deepPurple,
+          color: Colors.deepPurple,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
+          const Icon(
             Icons.military_tech,
             size: 14,
-            color: isLocked ? Colors.grey.shade700 : Colors.deepPurple,
+            color: Colors.deepPurple,
           ),
           const SizedBox(width: 4),
           Text(
             '$rankName ランク',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: isLocked ? Colors.grey.shade700 : Colors.deepPurple,
+              color: Colors.deepPurple,
             ),
           ),
         ],
       ),
     );
   }
-  
+
   Widget _buildDifficultyChip(int difficulty) {
     Color color;
     String label;
-    
+
     if (difficulty <= 2) {
       color = Colors.green;
       label = '初級';
@@ -309,24 +303,30 @@ class QuestListScreen extends StatelessWidget {
     } else if (difficulty <= 7) {
       color = Colors.red;
       label = '上級';
-    } else {
+    } else if (difficulty <= 15) {
       color = Colors.purple;
       label = '超級';
+    } else if (difficulty <= 30) {
+      color = Colors.deepPurple;
+      label = '極限';
+    } else {
+      color = Colors.black;
+      label = '絶対';
     }
-    
+
     return Chip(
       label: Text(label, style: const TextStyle(color: Colors.white)),
       backgroundColor: color,
       padding: EdgeInsets.zero,
     );
   }
-  
+
   Color _getSuccessRateColor(double rate) {
     if (rate >= 0.7) return Colors.green;
     if (rate >= 0.4) return Colors.orange;
     return Colors.red;
   }
-  
+
   void _showQuestDetail(
     BuildContext context,
     GameProvider provider,
@@ -350,28 +350,28 @@ class QuestListScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _buildRequirementRow(
-                'こうげき', 
-                quest.targetAttack, 
+                'こうげき',
+                quest.targetAttack,
                 provider.makina.effectiveAttack,
               ),
               _buildRequirementRow(
-                'まほう', 
-                quest.targetMagic, 
+                'まほう',
+                quest.targetMagic,
                 provider.makina.effectiveMagic,
               ),
               _buildRequirementRow(
-                'すばやさ', 
-                quest.targetSpeed, 
+                'すばやさ',
+                quest.targetSpeed,
                 provider.makina.effectiveSpeed,
               ),
               _buildRequirementRow(
-                'かしこさ', 
-                quest.targetIntelligence, 
+                'かしこさ',
+                quest.targetIntelligence,
                 provider.makina.effectiveIntelligence,
               ),
               _buildRequirementRow(
-                'ぼうぎょ', 
-                quest.targetDefense, 
+                'ぼうぎょ',
+                quest.targetDefense,
                 provider.makina.effectiveDefense,
               ),
               const SizedBox(height: 16),
@@ -422,10 +422,10 @@ class QuestListScreen extends StatelessWidget {
       ),
     );
   }
-  
+
   Widget _buildRequirementRow(String name, int required, int current) {
     final isSufficient = current >= required;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
