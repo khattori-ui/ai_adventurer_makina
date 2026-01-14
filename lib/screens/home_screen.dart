@@ -187,6 +187,9 @@ class HomeScreen extends StatelessWidget {
     final rankName = QuestData.getGuildRankName(makina.guildRank);
     final questsRequired = QuestData.getQuestsRequiredForRankUp(makina.guildRank);
     final progress = makina.questSuccessCountForCurrentRank;
+    final nextRankName = makina.guildRank < 6 
+        ? QuestData.getGuildRankName(makina.guildRank + 1) 
+        : 'MAX';
     
     return Card(
       elevation: 2,
@@ -229,7 +232,7 @@ class HomeScreen extends StatelessWidget {
             if (makina.guildRank < 6) ...[
               const SizedBox(height: 12),
               Text(
-                '次のランクまで: $progress / $questsRequired',
+                '$rankName ランクのクエストをクリア: $progress / $questsRequired',
                 style: TextStyle(color: Colors.grey.shade700),
               ),
               const SizedBox(height: 8),
@@ -237,6 +240,14 @@ class HomeScreen extends StatelessWidget {
                 value: progress / questsRequired,
                 backgroundColor: Colors.grey.shade300,
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '次のランク: $nextRankName',
+                style: TextStyle(
+                  color: Colors.deepPurple,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ] else ...[
               const SizedBox(height: 12),

@@ -260,6 +260,16 @@ class Makina {
   void addToInventory(Equipment equipment) {
     inventory.add(equipment);
   }
+
+  // ★追加: 指定したIDの装備を持っているかチェック（装備中またはインベントリ）
+  bool hasEquipment(String id) {
+    return (weapon?.id == id) ||
+           (armor?.id == id) ||
+           (shield?.id == id) ||
+           (bracelet?.id == id) ||
+           (boots?.id == id) ||
+           inventory.any((item) => item.id == id);
+  }
   
   // JSON変換
   Map<String, dynamic> toJson() {
@@ -327,6 +337,7 @@ class Makina {
   }
 }
 
+// 会話記憶クラス
 class ConversationMemory {
   final String playerMessage;
   final String makinaResponse;
@@ -396,40 +407,41 @@ class Quest {
     this.possibleDrops = const [],
   });
   
-  // クエストの成功率を計算(装備ボーナス込み)
+  // クエストの成功率を計算(装備ボーナス込み・重み付き評価)
   double calculateSuccessRate(Makina makina) {
     // 各ステータスの達成度を計算
+    // 上限を3.0倍まで拡張（2.0以上も評価する）
     List<double> ratios = [];
     List<double> weights = [];
     
     // 攻撃
     if (targetAttack > 0) {
-      ratios.add((makina.effectiveAttack / targetAttack).clamp(0.0, 2.0));
-      weights.add(1.0);
+      ratios.add((makina.effectiveAttack / targetAttack).clamp(0.0, 3.0));
+      weights.add(targetAttack.toDouble()); // 重み = 目標値
     }
     
     // 魔法
     if (targetMagic > 0) {
-      ratios.add((makina.effectiveMagic / targetMagic).clamp(0.0, 2.0));
-      weights.add(1.0);
+      ratios.add((makina.effectiveMagic / targetMagic).clamp(0.0, 3.0));
+      weights.add(targetMagic.toDouble());
     }
     
     // 素早さ
     if (targetSpeed > 0) {
-      ratios.add((makina.effectiveSpeed / targetSpeed).clamp(0.0, 2.0));
-      weights.add(1.0);
+      ratios.add((makina.effectiveSpeed / targetSpeed).clamp(0.0, 3.0));
+      weights.add(targetSpeed.toDouble());
     }
     
     // 賢さ
     if (targetIntelligence > 0) {
-      ratios.add((makina.effectiveIntelligence / targetIntelligence).clamp(0.0, 2.0));
-      weights.add(1.0);
+      ratios.add((makina.effectiveIntelligence / targetIntelligence).clamp(0.0, 3.0));
+      weights.add(targetIntelligence.toDouble());
     }
     
     // 防御
     if (targetDefense > 0) {
-      ratios.add((makina.effectiveDefense / targetDefense).clamp(0.0, 2.0));
-      weights.add(1.0);
+      ratios.add((makina.effectiveDefense / targetDefense).clamp(0.0, 3.0));
+      weights.add(targetDefense.toDouble());
     }
     
     // 重み付き平均スコアを計算
@@ -444,18 +456,25 @@ class Quest {
     if (totalWeight > 0) {
       score = score / totalWeight;
     } else {
-      score = 1.0; // 目標ステータスが全て0の場合は100%
+      score = 3.0; // 目標ステータスが全て0の場合はMAX評価(3.0)
     }
     
     // スコアを成功率に変換
     double successRate;
-    if (score < 0.3) {
-      successRate = 0.01 * (score / 0.3);
+    
+    if (score <= 1.0) {
+      // 0.0 -> 0%
+      // 1.0 -> 55%
+      successRate = score * 0.55;
     } else {
-      successRate = 0.01 + (score - 0.3) / 1.7 * 0.94;
+      // 1.0 -> 55%
+      // 2.0 -> 55% + 25% = 80%
+      // 2.8 -> 55% + 45% = 100%
+      successRate = 0.55 + (score - 1.0) * 0.25;
     }
     
-    return successRate.clamp(0.0, 0.95);
+    // どんなに強くても0.01%は失敗する
+    return successRate.clamp(0.0, 0.9999);
   }
   
   Map<String, dynamic> toJson() {

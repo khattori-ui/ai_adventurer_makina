@@ -151,6 +151,20 @@ class AchievementData {
         rarity: 3,
       ),
       Achievement(
+        id: 'true_maou_clear',
+        name: '真なる勇者',
+        description: '真・魔王を討伐する',
+        icon: '👑',
+        rarity: 3,
+      ),
+      Achievement(
+        id: 'god_slayer',
+        name: '神殺し',
+        description: '創世神に勝利する',
+        icon: '⚡',
+        rarity: 3,
+      ),
+      Achievement(
         id: 'all_quest_clear',
         name: 'クエストマスター',
         description: '全てのクエストを成功させる',

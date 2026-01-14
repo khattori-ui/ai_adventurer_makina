@@ -133,11 +133,12 @@ class QuestListScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '次回ランク',
+              '$rankName ランクのクエストをクリアしよう！',
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 14,
+                fontSize: 12,
               ),
+              textAlign: TextAlign.center,
             ),
           ] else ...[
             const SizedBox(height: 8),

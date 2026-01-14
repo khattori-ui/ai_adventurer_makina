@@ -43,9 +43,15 @@ class GameProvider extends ChangeNotifier {
       return null;
     }
     
-    final endTime = _makina.questStartTime!.add(
-      Duration(minutes: _makina.currentQuest!.durationMinutes)
-    );
+    // ★★★ テスト用修正 ★★★
+    // 全てのクエスト時間を強制的に3秒にします
+    // ※テストが終わったら、下の行を削除してコメントアウトを外してください
+    final duration = const Duration(seconds: 3);
+    
+    // 元のコード（本番用）：
+    // final duration = Duration(minutes: _makina.currentQuest!.durationMinutes);
+    
+    final endTime = _makina.questStartTime!.add(duration);
     final remaining = endTime.difference(DateTime.now());
     
     return remaining.isNegative ? Duration.zero : remaining;
@@ -142,12 +148,24 @@ class GameProvider extends ChangeNotifier {
     _droppedEquipment = null;
     if (success && quest.possibleDrops.isNotEmpty) {
       final random = Random();
+      
+      // ★ポイント: ここでドロップ抽選判定を行います
+      // 「持っていない装備があるか」の確認より前に確率判定を行うことで、
+      // トータルのドロップ率（何かが落ちる確率）は固定されます。
       if (random.nextDouble() < quest.dropRate) {
-        final dropId = quest.possibleDrops[random.nextInt(quest.possibleDrops.length)];
-        final equipment = QuestData.getEquipmentById(dropId);
-        if (equipment != null) {
-          _droppedEquipment = equipment;
-          _makina.addToInventory(equipment);
+        
+        // すでに持っている装備はドロップ候補から除外
+        final availableDrops = quest.possibleDrops.where((id) => !_makina.hasEquipment(id)).toList();
+        
+        // 未所持のものがある場合のみドロップ
+        // (これにより、持っている装備の分の確率は、残りの装備に自動的に分配されることになります)
+        if (availableDrops.isNotEmpty) {
+          final dropId = availableDrops[random.nextInt(availableDrops.length)];
+          final equipment = QuestData.getEquipmentById(dropId);
+          if (equipment != null) {
+            _droppedEquipment = equipment;
+            _makina.addToInventory(equipment);
+          }
         }
       }
     }
@@ -179,13 +197,15 @@ class GameProvider extends ChangeNotifier {
       _consecutiveSuccess++;
       _consecutiveFail = 0;
       
-      // ランク進捗を記録
-      _makina.recordQuestSuccess();
-      
-      // ランクアップ判定
-      final questsRequired = QuestData.getQuestsRequiredForRankUp(_makina.guildRank);
-      if (_makina.tryRankUp(questsRequired)) {
-        _hasRankedUp = true;
+      // 現在のランクと同じランクのクエストをクリアした場合のみランク進捗を記録
+      if (quest.requiredGuildRank == _makina.guildRank) {
+        _makina.recordQuestSuccess();
+        
+        // ランクアップ判定
+        final questsRequired = QuestData.getQuestsRequiredForRankUp(_makina.guildRank);
+        if (_makina.tryRankUp(questsRequired)) {
+          _hasRankedUp = true;
+        }
       }
       
       if (!_clearedQuestIds.contains(quest.id)) {
