@@ -1,10 +1,10 @@
-name: ai_adventurer_makina2
-description: AI冒険者マキナ - AIと育てる冒険者RPG
+name: ai_makina_adventure
+description: "AI冒険者マキナの開発プロジェクト"
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.1.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -13,13 +13,16 @@ dependencies:
   shared_preferences: ^2.2.2
   provider: ^6.1.1
   intl: ^0.18.1
+  flutter_dotenv: ^5.1.0  # ここに移動しました
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - .env  # これを忘れずに追加
