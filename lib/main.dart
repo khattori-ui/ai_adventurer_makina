@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // 追加
 import 'package:provider/provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // 追加
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/game_provider.dart';
 import 'screens/title_screen.dart';
 
@@ -9,10 +10,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // .envファイルを読み込む (画像 image_07cc68.png で設定済みのアセット)
+    // .envファイルを読み込む
     await dotenv.load(fileName: ".env");
   } catch (e) {
-    print("Warning: .env file not found. Simulation mode will be used.");
+    // シミュレーションモードで動作
+    if (kDebugMode) {
+      print("Warning: .env file not found. Simulation mode will be used.");
+    }
   }
 
   runApp(const MyApp());

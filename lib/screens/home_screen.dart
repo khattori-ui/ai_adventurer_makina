@@ -52,7 +52,6 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   _buildMakinaCard(context, provider),
                   const SizedBox(height: 20),
-                  // ★転生ボタンの表示（レベル30以上）
                   if (provider.makina.level >= 30)
                     _buildReincarnationButton(context, provider),
                   const SizedBox(height: 20),
@@ -74,7 +73,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // ★転生ボタンUI
   Widget _buildReincarnationButton(
       BuildContext context, GameProvider provider) {
     return Card(
@@ -104,13 +102,17 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  // 転生報酬の説明を更新
   void _showReincarnationDialog(BuildContext context, GameProvider provider) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('魂の転生'),
-        content: const Text(
-            'レベル30に達したマキナを転生させますか？\n\n【効果】\n・レベル1に戻る\n・装備はそのまま維持\n・レベルアップ時のステータス成長率が永久にアップ！'),
+        content: const Text('レベル30に達したマキナを転生させますか？\n\n'
+            '【転生特典】\n'
+            '✨ レベルアップ時のステータス成長率が永久アップ！\n'
+            '✨ クリア済みクエストの成功率が最大10%アップ！\n\n'
+            '※レベルは1に戻りますが、装備はそのまま維持されます。'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
@@ -129,7 +131,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // (※ 以下、既存のUIビルド関数は以前と同じです)
   Widget _buildMakinaCard(BuildContext context, GameProvider provider) {
     final m = provider.makina;
     return Card(

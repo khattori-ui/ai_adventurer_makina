@@ -63,8 +63,6 @@ class Makina {
   double dependent;
   int guildRank;
   int questSuccessCountForCurrentRank;
-
-  // ★追加：転生回数
   int reincarnationCount;
 
   Equipment? weapon;
@@ -152,8 +150,8 @@ class Makina {
     level++;
     experienceToNextLevel = (100 * pow(level, 3.1)).toInt();
 
-    // ★転生ボーナス：回数に応じて上昇量が増加
-    int bonus = 5 + (reincarnationCount * 3);
+    // 【案1採用】転生ボーナス：転生回数に応じて上昇量が増加
+    int bonus = 5 + (reincarnationCount * 2);
     attack += bonus;
     magic += bonus;
     speed += bonus - 2;
@@ -161,7 +159,6 @@ class Makina {
     defense += bonus - 2;
   }
 
-  // ★転生：レベル30以上で全ステータスを初期化し、成長率を上げる
   void reincarnate() {
     if (level < 30) return;
     reincarnationCount++;
@@ -356,6 +353,7 @@ class Quest {
   final int failureExperience;
   final double dropRate;
   final List<String> possibleDrops;
+
   Quest(
       {required this.id,
       required this.name,
@@ -372,7 +370,9 @@ class Quest {
       required this.failureExperience,
       this.dropRate = 0.0,
       this.possibleDrops = const []});
-  double calculateSuccessRate(Makina makina) {
+
+  // 【案3採用】成功率計算にクリア済み判定とリハビリボーナスを追加
+  double calculateSuccessRate(Makina makina, bool isCleared) {
     List<double> r = [];
     List<double> w = [];
     if (targetAttack > 0) {
@@ -406,7 +406,17 @@ class Quest {
       s /= tw;
     else
       s = 3.0;
-    return (s <= 1.0 ? s * 0.55 : 0.55 + (s - 1.0) * 0.25).clamp(0.0, 0.9999);
+
+    double baseRate =
+        (s <= 1.0 ? s * 0.55 : 0.55 + (s - 1.0) * 0.25).clamp(0.0, 0.9999);
+
+    // 【案3】クリア済みボーナス: 転生回数×5%（最大10%）
+    if (isCleared && makina.reincarnationCount > 0) {
+      double rehabBonus = (makina.reincarnationCount * 0.05).clamp(0.0, 0.10);
+      baseRate = (baseRate + rehabBonus).clamp(0.0, 0.9999);
+    }
+
+    return baseRate;
   }
 
   Map<String, dynamic> toJson() => {
@@ -426,6 +436,7 @@ class Quest {
         'dropRate': dropRate,
         'possibleDrops': possibleDrops
       };
+
   factory Quest.fromJson(Map<String, dynamic> json) => Quest(
       id: json['id'],
       name: json['name'],

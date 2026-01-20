@@ -55,7 +55,7 @@ class GameProvider extends ChangeNotifier {
   Duration? get remainingTime {
     if (_makina.currentQuest == null || _makina.questStartTime == null)
       return null;
-    final duration = const Duration(seconds: 3); // テスト用
+    final duration = const Duration(seconds: 3); // テスト用3秒
     final endTime = _makina.questStartTime!.add(duration);
     final remaining = endTime.difference(DateTime.now());
     return remaining.isNegative ? Duration.zero : remaining;
@@ -88,12 +88,12 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ★追加：転生処理
+  // 転生処理の更新
   Future<void> reincarnate() async {
     if (_makina.level < 30) return;
     _makina.reincarnate();
     await _saveMakina();
-    _currentMessage = "転生したよ、師匠！身体が軽くなって、なんだか以前より成長できそうな気がするな！";
+    _currentMessage = "師匠、転生完了だよ！体が軽くなって、前より早く成長できそう！一度クリアしたクエストなら、あたしに任せて！";
     notifyListeners();
   }
 
@@ -123,7 +123,11 @@ class GameProvider extends ChangeNotifier {
     _hasRankedUp = false;
     notifyListeners();
     final quest = _makina.currentQuest!;
-    final successRate = quest.calculateSuccessRate(_makina);
+
+    // クリア済み判定を渡して成功率を計算
+    final isCleared = _clearedQuestIds.contains(quest.id);
+    final successRate = quest.calculateSuccessRate(_makina, isCleared);
+
     final random = Random();
     final success = random.nextDouble() < successRate;
     final exp = success ? quest.experienceReward : quest.failureExperience;
@@ -163,7 +167,11 @@ class GameProvider extends ChangeNotifier {
             .tryRankUp(QuestData.getQuestsRequiredForRankUp(_makina.guildRank)))
           _hasRankedUp = true;
       }
-      if (!_clearedQuestIds.contains(quest.id)) _clearedQuestIds.add(quest.id);
+      if (!_clearedQuestIds.contains(quest.id)) {
+        _clearedQuestIds.add(quest.id);
+        (await SharedPreferences.getInstance())
+            .setString('clearedQuests', jsonEncode(_clearedQuestIds));
+      }
     } else {
       _consecutiveFail++;
       _consecutiveSuccess = 0;
@@ -236,10 +244,12 @@ class GameProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('hasSeenPrologue', false);
     await prefs.setBool('hasSeenTutorial', false);
+    await prefs.remove('clearedQuests');
     _makina = Makina();
     _currentMessage = null;
     _droppedEquipment = null;
     _questCompletedCount = 0;
+    _clearedQuestIds = [];
     _questResult = null;
     notifyListeners();
   }
@@ -292,6 +302,9 @@ class GameProvider extends ChangeNotifier {
     _newlyUnlockedAchievement = null;
     notifyListeners();
   }
+
+  Future<void> _unlockAchievementById(String id) async =>
+      await _unlockAchievement(id);
 
   Future<void> _checkAchievements(Quest q, bool s, double rate) async {
     if (s && _questCompletedCount == 1) await _unlockAchievement('first_quest');

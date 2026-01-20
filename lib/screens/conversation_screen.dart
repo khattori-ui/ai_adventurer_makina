@@ -17,8 +17,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void initState() {
     super.initState();
-    
-    // 初期メッセージを追加
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<GameProvider>(context, listen: false);
       if (provider.currentMessage != null) {
@@ -47,9 +45,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       ),
       body: Column(
         children: [
-          Expanded(
-            child: _buildMessageList(),
-          ),
+          Expanded(child: _buildMessageList()),
           _buildSuggestionButtons(),
           _buildInputArea(),
         ],
@@ -70,7 +66,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Widget _buildMessageBubble(ChatMessage message) {
     return Align(
-      alignment: message.isPlayer ? Alignment.centerRight : Alignment.centerLeft,
+      alignment:
+          message.isPlayer ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -78,9 +75,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         decoration: BoxDecoration(
-          color: message.isPlayer 
-              ? Colors.deepPurple 
-              : Colors.grey.shade200,
+          color: message.isPlayer ? Colors.deepPurple : Colors.grey.shade200,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
@@ -95,43 +90,28 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Widget _buildSuggestionButtons() {
-    if (_isProcessing || _messages.isEmpty) {
+    if (_isProcessing || _messages.isEmpty || _messages.last.isPlayer) {
       return const SizedBox.shrink();
     }
-
-    // 最後のメッセージがマキナからの場合のみ表示
-    if (_messages.last.isPlayer) {
-      return const SizedBox.shrink();
-    }
-
     final provider = Provider.of<GameProvider>(context, listen: false);
     final makina = provider.makina;
-
-    List<String> suggestions = [];
-    
-    // 親密度に応じた提案
-    if (makina.intimacy >= 70) {
-      suggestions = ['よく頑張ったね！', 'すごいよ！', '大丈夫？'];
-    } else if (makina.intimacy >= 40) {
-      suggestions = ['よくやった', '次も頑張って', 'お疲れ様'];
-    } else {
-      suggestions = ['報告ご苦労', 'そうか', '次はもっと頑張れ'];
-    }
+    List<String> suggestions = makina.intimacy >= 70
+        ? ['よく頑張ったね！', 'すごいよ！', '大丈夫？']
+        : (makina.intimacy >= 40
+            ? ['よくやった', '次も頑張って', 'お疲れ様']
+            : ['報告ご苦労', 'そうか', '次はもっと頑張れ']);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: suggestions.map((text) {
-          return OutlinedButton(
-            onPressed: () => _sendMessage(text),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-            child: Text(text),
-          );
-        }).toList(),
+        children: suggestions
+            .map((text) => OutlinedButton(
+                  onPressed: () => _sendMessage(text),
+                  child: Text(text),
+                ))
+            .toList(),
       ),
     );
   }
@@ -139,16 +119,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Widget _buildInputArea() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            offset: const Offset(0, -1),
-            blurRadius: 4,
-          ),
-        ],
-      ),
+      color: Colors.white,
       child: Row(
         children: [
           Expanded(
@@ -157,29 +128,18 @@ class _ConversationScreenState extends State<ConversationScreen> {
               decoration: const InputDecoration(
                 hintText: 'メッセージを入力...',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
               ),
               enabled: !_isProcessing,
-              onSubmitted: (_) => _sendMessage(_messageController.text),
             ),
           ),
-          const SizedBox(width: 8),
           IconButton(
-            onPressed: _isProcessing 
-                ? null 
+            onPressed: _isProcessing
+                ? null
                 : () => _sendMessage(_messageController.text),
             icon: _isProcessing
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const CircularProgressIndicator()
                 : const Icon(Icons.send),
             color: Colors.deepPurple,
-            iconSize: 28,
           ),
         ],
       ),
@@ -189,6 +149,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty || _isProcessing) return;
 
+    // SEC-031: 500文字制限
+    if (text.length > 500) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('メッセージは500文字以内にしてください')),
+      );
+      return;
+    }
+
     setState(() {
       _messages.add(ChatMessage(text: text, isPlayer: true));
       _messageController.clear();
@@ -196,24 +164,17 @@ class _ConversationScreenState extends State<ConversationScreen> {
     });
 
     final provider = Provider.of<GameProvider>(context, listen: false);
-    
     try {
       await provider.respondToPlayer(text);
-      
       if (provider.currentMessage != null) {
         setState(() {
-          _messages.add(ChatMessage(
-            text: provider.currentMessage!,
-            isPlayer: false,
-          ));
+          _messages.add(
+              ChatMessage(text: provider.currentMessage!, isPlayer: false));
         });
       }
     } catch (e) {
       setState(() {
-        _messages.add(ChatMessage(
-          text: 'エラーが発生しました...',
-          isPlayer: false,
-        ));
+        _messages.add(ChatMessage(text: 'エラーが発生しました...', isPlayer: false));
       });
     } finally {
       setState(() {
@@ -226,9 +187,5 @@ class _ConversationScreenState extends State<ConversationScreen> {
 class ChatMessage {
   final String text;
   final bool isPlayer;
-
-  ChatMessage({
-    required this.text,
-    required this.isPlayer,
-  });
+  ChatMessage({required this.text, required this.isPlayer});
 }
