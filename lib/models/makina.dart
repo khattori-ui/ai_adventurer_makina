@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'item.dart';
 
 class Equipment {
   final String id;
@@ -75,6 +76,10 @@ class Makina {
   DateTime? questStartTime;
   List<ConversationMemory> recentMemories;
 
+  // バフと衣装の追加
+  String? currentOutfitId;
+  List<ActiveBuff> activeBuffs;
+
   Makina({
     this.level = 1,
     this.experience = 0,
@@ -99,44 +104,53 @@ class Makina {
     this.currentQuest,
     this.questStartTime,
     List<ConversationMemory>? recentMemories,
+    this.currentOutfitId,
+    List<ActiveBuff>? activeBuffs,
   })  : inventory = inventory ?? [],
-        recentMemories = recentMemories ?? [];
+        recentMemories = recentMemories ?? [],
+        activeBuffs = activeBuffs ?? [];
 
-  int get effectiveAttack =>
-      attack +
+  // バフを計算に入れる内部メソッド
+  int _applyBuff(int baseValue) {
+    double multiplier = 1.0;
+    for (var buff in activeBuffs) {
+      if (!buff.isExpired) {
+        multiplier = max(multiplier, buff.statMultiplier);
+      }
+    }
+    return (baseValue * multiplier).toInt();
+  }
+
+  int get effectiveAttack => _applyBuff(attack +
       (weapon?.attackBonus ?? 0) +
       (armor?.attackBonus ?? 0) +
       (shield?.attackBonus ?? 0) +
       (bracelet?.attackBonus ?? 0) +
-      (boots?.attackBonus ?? 0);
-  int get effectiveMagic =>
-      magic +
+      (boots?.attackBonus ?? 0));
+  int get effectiveMagic => _applyBuff(magic +
       (weapon?.magicBonus ?? 0) +
       (armor?.magicBonus ?? 0) +
       (shield?.magicBonus ?? 0) +
       (bracelet?.magicBonus ?? 0) +
-      (boots?.magicBonus ?? 0);
-  int get effectiveSpeed =>
-      speed +
+      (boots?.magicBonus ?? 0));
+  int get effectiveSpeed => _applyBuff(speed +
       (weapon?.speedBonus ?? 0) +
       (armor?.speedBonus ?? 0) +
       (shield?.speedBonus ?? 0) +
       (bracelet?.speedBonus ?? 0) +
-      (boots?.speedBonus ?? 0);
-  int get effectiveIntelligence =>
-      intelligence +
+      (boots?.speedBonus ?? 0));
+  int get effectiveIntelligence => _applyBuff(intelligence +
       (weapon?.intelligenceBonus ?? 0) +
       (armor?.intelligenceBonus ?? 0) +
       (shield?.intelligenceBonus ?? 0) +
       (bracelet?.intelligenceBonus ?? 0) +
-      (boots?.intelligenceBonus ?? 0);
-  int get effectiveDefense =>
-      defense +
+      (boots?.intelligenceBonus ?? 0));
+  int get effectiveDefense => _applyBuff(defense +
       (weapon?.defenseBonus ?? 0) +
       (armor?.defenseBonus ?? 0) +
       (shield?.defenseBonus ?? 0) +
       (bracelet?.defenseBonus ?? 0) +
-      (boots?.defenseBonus ?? 0);
+      (boots?.defenseBonus ?? 0));
 
   void addExperience(int exp) {
     experience += exp;
@@ -149,8 +163,6 @@ class Makina {
     experience -= experienceToNextLevel;
     level++;
     experienceToNextLevel = (100 * pow(level, 3.1)).toInt();
-
-    // 【案1採用】転生ボーナス：転生回数に応じて上昇量が増加
     int bonus = 5 + (reincarnationCount * 2);
     attack += bonus;
     magic += bonus;
@@ -174,9 +186,10 @@ class Makina {
 
   void changeIntimacy(double delta) =>
       intimacy = (intimacy + delta).clamp(0.0, 100.0);
-  void changePersonality(double bc, double dc) {
-    brave = (brave + bc).clamp(-100.0, 100.0);
-    dependent = (dependent + dc).clamp(-100.0, 100.0);
+
+  void applyPersonalityChange(double b, double d) {
+    brave = (brave + b).clamp(-100.0, 100.0);
+    dependent = (dependent + d).clamp(-100.0, 100.0);
   }
 
   void recordQuestSuccess() => questSuccessCountForCurrentRank++;
@@ -271,6 +284,8 @@ class Makina {
         'currentQuest': currentQuest?.toJson(),
         'questStartTime': questStartTime?.toIso8601String(),
         'recentMemories': recentMemories.map((m) => m.toJson()).toList(),
+        'currentOutfitId': currentOutfitId,
+        'activeBuffs': activeBuffs.map((b) => b.toJson()).toList(),
       };
 
   factory Makina.fromJson(Map<String, dynamic> json) => Makina(
@@ -312,6 +327,12 @@ class Makina {
         recentMemories: json['recentMemories'] != null
             ? (json['recentMemories'] as List)
                 .map((m) => ConversationMemory.fromJson(m))
+                .toList()
+            : [],
+        currentOutfitId: json['currentOutfitId'],
+        activeBuffs: json['activeBuffs'] != null
+            ? (json['activeBuffs'] as List)
+                .map((b) => ActiveBuff.fromJson(b))
                 .toList()
             : [],
       );
@@ -371,7 +392,6 @@ class Quest {
       this.dropRate = 0.0,
       this.possibleDrops = const []});
 
-  // 【案3採用】成功率計算にクリア済み判定とリハビリボーナスを追加
   double calculateSuccessRate(Makina makina, bool isCleared) {
     List<double> r = [];
     List<double> w = [];
@@ -406,16 +426,12 @@ class Quest {
       s /= tw;
     else
       s = 3.0;
-
     double baseRate =
         (s <= 1.0 ? s * 0.55 : 0.55 + (s - 1.0) * 0.25).clamp(0.0, 0.9999);
-
-    // 【案3】クリア済みボーナス: 転生回数×5%（最大10%）
     if (isCleared && makina.reincarnationCount > 0) {
       double rehabBonus = (makina.reincarnationCount * 0.05).clamp(0.0, 0.10);
       baseRate = (baseRate + rehabBonus).clamp(0.0, 0.9999);
     }
-
     return baseRate;
   }
 
@@ -436,7 +452,6 @@ class Quest {
         'dropRate': dropRate,
         'possibleDrops': possibleDrops
       };
-
   factory Quest.fromJson(Map<String, dynamic> json) => Quest(
       id: json['id'],
       name: json['name'],

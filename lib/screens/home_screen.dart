@@ -6,6 +6,9 @@ import 'quest_list_screen.dart';
 import 'conversation_screen.dart';
 import 'equipment_screen.dart';
 import 'achievement_screen.dart';
+import 'debug_item_screen.dart';
+import 'reincarnation_screen.dart';
+import 'active_buff_screen.dart'; // ★追加
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -19,6 +22,11 @@ class HomeScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.deepPurple,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bug_report, color: Colors.orangeAccent),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const DebugItemScreen())),
+          ),
           IconButton(
               icon: const Icon(Icons.emoji_events),
               onPressed: () => Navigator.push(
@@ -40,10 +48,8 @@ class HomeScreen extends StatelessWidget {
             else if (provider.newlyUnlockedAchievement != null)
               _showAchievementUnlockedDialog(context, provider);
           });
-
           if (provider.isLoading)
             return const Center(child: CircularProgressIndicator());
-
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -52,6 +58,11 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   _buildMakinaCard(context, provider),
                   const SizedBox(height: 20),
+                  // ★アクティブバフ表示を追加
+                  if (provider.makina.activeBuffs.any((b) => !b.isExpired))
+                    _buildActiveBuffsCard(context, provider),
+                  if (provider.makina.activeBuffs.any((b) => !b.isExpired))
+                    const SizedBox(height: 20),
                   if (provider.makina.level >= 30)
                     _buildReincarnationButton(context, provider),
                   const SizedBox(height: 20),
@@ -73,6 +84,124 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  // ★アクティブバフ表示カード
+  Widget _buildActiveBuffsCard(BuildContext context, GameProvider provider) {
+    final activeBuffs =
+        provider.makina.activeBuffs.where((b) => !b.isExpired).toList();
+
+    return Card(
+      color: Colors.purple.shade50,
+      elevation: 4,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ActiveBuffScreen()),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome,
+                          color: Colors.purple, size: 28),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'アクティブバフ',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.purple,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${activeBuffs.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...activeBuffs.take(2).map((buff) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            buff.name,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                        Text(
+                          _formatShortTime(
+                              buff.expiry.difference(DateTime.now())),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+              if (activeBuffs.length > 2)
+                Text(
+                  '他${activeBuffs.length - 2}件...',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              const SizedBox(height: 8),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '詳細を見る',
+                    style: TextStyle(
+                      color: Colors.purple,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Icons.arrow_forward, color: Colors.purple, size: 16),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatShortTime(Duration duration) {
+    if (duration.inDays > 0) {
+      return '${duration.inDays}日';
+    } else if (duration.inHours > 0) {
+      return '${duration.inHours}時間';
+    } else if (duration.inMinutes > 0) {
+      return '${duration.inMinutes}分';
+    } else {
+      return '${duration.inSeconds}秒';
+    }
+  }
+
   Widget _buildReincarnationButton(
       BuildContext context, GameProvider provider) {
     return Card(
@@ -82,7 +211,10 @@ class HomeScreen extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: Colors.amber, width: 2)),
       child: InkWell(
-        onTap: () => _showReincarnationDialog(context, provider),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ReincarnationScreen()),
+        ),
         child: const Padding(
           padding: EdgeInsets.all(16.0),
           child: Row(
@@ -90,7 +222,7 @@ class HomeScreen extends StatelessWidget {
             children: [
               Icon(Icons.auto_awesome, color: Colors.amber, size: 32),
               SizedBox(width: 12),
-              Text('転生してさらに高みへ！',
+              Text('転生の祭壇へ',
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -98,35 +230,6 @@ class HomeScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  // 転生報酬の説明を更新
-  void _showReincarnationDialog(BuildContext context, GameProvider provider) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('魂の転生'),
-        content: const Text('レベル30に達したマキナを転生させますか？\n\n'
-            '【転生特典】\n'
-            '✨ レベルアップ時のステータス成長率が永久アップ！\n'
-            '✨ クリア済みクエストの成功率が最大10%アップ！\n\n'
-            '※レベルは1に戻りますが、装備はそのまま維持されます。'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('まだしない')),
-          ElevatedButton(
-            onPressed: () {
-              provider.reincarnate();
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber, foregroundColor: Colors.black),
-            child: const Text('転生する！'),
-          ),
-        ],
       ),
     );
   }
@@ -177,6 +280,64 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildStatusCard(GameProvider provider) {
+    final m = provider.makina;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('ステータス (バフ適用済み)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            _buildStatRow('こうげき', m.effectiveAttack, Colors.red, 1000),
+            _buildStatRow('まほう', m.effectiveMagic, Colors.blue, 1000),
+            _buildStatRow('ぼうぎょ', m.effectiveDefense, Colors.orange, 1000),
+            const Divider(height: 32),
+            const Text('性格パラメータ',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            _buildStatRow('勇敢さ', m.brave.toInt(), Colors.deepOrange, 100,
+                isPersonality: true),
+            _buildStatRow('依存度', m.dependent.toInt(), Colors.pinkAccent, 100,
+                isPersonality: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String name, int val, Color col, int maxVal,
+      {bool isPersonality = false}) {
+    double progress =
+        isPersonality ? (val + 100) / 200 : (val / maxVal).clamp(0.0, 1.0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 80, child: Text(name)),
+          Expanded(
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey.shade300,
+              valueColor: AlwaysStoppedAnimation(col),
+              minHeight: 8,
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 40,
+            child: Text('$val',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.right),
+          )
+        ],
+      ),
+    );
+  }
+
   void _showQuestResultDialog(BuildContext context, GameProvider provider) {
     final res = provider.questResult!;
     showDialog(
@@ -190,7 +351,14 @@ class HomeScreen extends StatelessWidget {
                       ? 'assets/images/quest_success_bg.png'
                       : 'assets/images/quest_failure_bg.png',
                   height: 300,
-                  fit: BoxFit.contain),
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Container(
+                      height: 300,
+                      color: res.isSuccess ? Colors.green : Colors.red,
+                      child: Icon(
+                          res.isSuccess ? Icons.check_circle : Icons.cancel,
+                          size: 100,
+                          color: Colors.white))),
               Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(children: [
@@ -251,37 +419,6 @@ class HomeScreen extends StatelessWidget {
                     valueColor: const AlwaysStoppedAnimation(Colors.amber))
               ]
             ])));
-  }
-
-  Widget _buildStatusCard(GameProvider provider) {
-    final m = provider.makina;
-    return Card(
-        child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('ステータス',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              _buildStatRow('こうげき', m.effectiveAttack, Colors.red),
-              _buildStatRow('まほう', m.effectiveMagic, Colors.blue),
-              _buildStatRow('ぼうぎょ', m.effectiveDefense, Colors.orange)
-            ])));
-  }
-
-  Widget _buildStatRow(String name, int val, Color col) {
-    return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(children: [
-          SizedBox(width: 80, child: Text(name)),
-          Expanded(
-              child: LinearProgressIndicator(
-                  value: val / 1000,
-                  backgroundColor: Colors.grey.shade300,
-                  valueColor: AlwaysStoppedAnimation(col))),
-          const SizedBox(width: 8),
-          Text('$val', style: const TextStyle(fontWeight: FontWeight.bold))
-        ]));
   }
 
   Widget _buildActionButtons(BuildContext context, GameProvider provider) {
@@ -380,7 +517,7 @@ class HomeScreen extends StatelessWidget {
         context: context,
         builder: (_) => AlertDialog(
                 title: const Text('リセット'),
-                content: const Text('全データを消去しますか？'),
+                content: const Text('全データを消去しますか?'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(context),

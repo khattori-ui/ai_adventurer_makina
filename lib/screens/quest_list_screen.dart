@@ -28,17 +28,24 @@ class QuestListScreen extends StatelessWidget {
                         itemCount: availableQuests.length,
                         itemBuilder: (context, index) {
                           final quest = availableQuests[index];
-                          // ★修正ポイント：第2引数にクリア済み判定を渡す
-                          final isCleared = provider.makina.currentQuest?.id ==
-                                  quest.id ||
-                              provider.makina.level > 1; // 簡易判定。本来はproviderから取得
+                          final isCleared =
+                              provider.makina.level > 1; // 簡易的なクリア判定
                           final successRate = quest.calculateSuccessRate(
                               provider.makina,
-                              provider.makina.reincarnationCount >
-                                  0 // 転生済みならクリア判定チェックを有効化
-                              );
-                          return _buildQuestCard(
-                              context, provider, quest, successRate);
+                              provider.makina.reincarnationCount > 0);
+
+                          // バフを考慮した実際の所要時間を計算
+                          double reduction = 1.0;
+                          for (var buff in provider.makina.activeBuffs) {
+                            if (!buff.isExpired && buff.timeReductionRate > 0) {
+                              reduction = 1.0 - buff.timeReductionRate;
+                            }
+                          }
+                          final actualDuration =
+                              (quest.durationMinutes * reduction).toInt();
+
+                          return _buildQuestCard(context, provider, quest,
+                              successRate, actualDuration);
                         },
                       ),
               ),
@@ -75,13 +82,11 @@ class QuestListScreen extends StatelessWidget {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
-      child: Text('挑戦できるクエストがありません'),
-    );
+    return const Center(child: Text('挑戦できるクエストがありません'));
   }
 
-  Widget _buildQuestCard(
-      BuildContext context, GameProvider provider, Quest quest, double rate) {
+  Widget _buildQuestCard(BuildContext context, GameProvider provider,
+      Quest quest, double rate, int duration) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -96,19 +101,24 @@ class QuestListScreen extends StatelessWidget {
               children: [
                 _buildDifficultyChip(quest.difficulty),
                 const SizedBox(width: 8),
+                const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text('$duration分',
+                    style: const TextStyle(
+                        fontSize: 12, color: Colors.grey)), // 所要時間を追加
+                const SizedBox(width: 8),
                 Text(
                   '成功率: ${(rate * 100).toStringAsFixed(1)}%',
                   style: TextStyle(
-                    color: _getSuccessRateColor(rate),
-                    fontWeight: FontWeight.bold,
-                  ),
+                      color: _getSuccessRateColor(rate),
+                      fontWeight: FontWeight.bold),
                 ),
               ],
             ),
           ],
         ),
         trailing: const Icon(Icons.chevron_right),
-        onTap: () => _showQuestDetail(context, provider, quest, rate),
+        onTap: () => _showQuestDetail(context, provider, quest, rate, duration),
       ),
     );
   }
@@ -117,9 +127,7 @@ class QuestListScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(12),
-      ),
+          color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
       child: Text('難易度 $d', style: const TextStyle(fontSize: 12)),
     );
   }
@@ -135,6 +143,7 @@ class QuestListScreen extends StatelessWidget {
     GameProvider provider,
     Quest quest,
     double successRate,
+    int duration,
   ) {
     bool isStarting = false;
 
@@ -150,9 +159,32 @@ class QuestListScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(quest.description),
+                const Divider(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('報酬経験値:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${quest.experienceReward} EXP',
+                        style: const TextStyle(
+                            color: Colors.blue,
+                            fontWeight: FontWeight.bold)), // 経験値量を追加
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('所要時間:',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('$duration 分',
+                        style: const TextStyle(color: Colors.black87)),
+                  ],
+                ),
                 const SizedBox(height: 16),
-                const Text('必要ステータス',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text('必要ステータス目安',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 const SizedBox(height: 8),
                 _buildRequirementRow('こうげき', quest.targetAttack,
                     provider.makina.effectiveAttack),
@@ -164,19 +196,17 @@ class QuestListScreen extends StatelessWidget {
                 Text(
                   '予測成功率: ${(successRate * 100).toStringAsFixed(1)}%',
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: _getSuccessRateColor(successRate),
-                  ),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _getSuccessRateColor(successRate)),
                 ),
               ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: isStarting ? null : () => Navigator.pop(context),
-              child: const Text('キャンセル'),
-            ),
+                onPressed: isStarting ? null : () => Navigator.pop(context),
+                child: const Text('キャンセル')),
             ElevatedButton(
               onPressed: isStarting
                   ? null
@@ -189,9 +219,8 @@ class QuestListScreen extends StatelessWidget {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-              ),
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white),
               child: isStarting
                   ? const SizedBox(
                       width: 20,
@@ -213,14 +242,12 @@ class QuestListScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(n),
-          Text(
-            '$c / $r',
-            style: TextStyle(
-              color: isMet ? Colors.green : Colors.red,
-              fontWeight: isMet ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
+          Text(n, style: const TextStyle(fontSize: 13)),
+          Text('$c / $r',
+              style: TextStyle(
+                  fontSize: 13,
+                  color: isMet ? Colors.green : Colors.red,
+                  fontWeight: isMet ? FontWeight.bold : FontWeight.normal)),
         ],
       ),
     );

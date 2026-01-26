@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/makina.dart';
+import '../models/item.dart';
 import '../services/storage_service.dart';
 import '../services/ai_service.dart';
 import '../data/quest_data.dart';
@@ -55,8 +56,16 @@ class GameProvider extends ChangeNotifier {
   Duration? get remainingTime {
     if (_makina.currentQuest == null || _makina.questStartTime == null)
       return null;
-    final duration = const Duration(seconds: 3); // テスト用3秒
-    final endTime = _makina.questStartTime!.add(duration);
+    double reduction = 1.0;
+    for (var buff in _makina.activeBuffs) {
+      if (!buff.isExpired && buff.timeReductionRate > 0) {
+        reduction = min(reduction, 1.0 - buff.timeReductionRate);
+      }
+    }
+    final baseDuration = const Duration(seconds: 3); // テスト用3秒
+    final actualDuration =
+        Duration(seconds: (baseDuration.inSeconds * reduction).toInt());
+    final endTime = _makina.questStartTime!.add(actualDuration);
     final remaining = endTime.difference(DateTime.now());
     return remaining.isNegative ? Duration.zero : remaining;
   }
@@ -88,7 +97,28 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 転生処理の更新
+  // ★アイテム使用ロジック（テスト用は無限）
+  Future<void> useItem(ShopItem item, {bool isDebug = false}) async {
+    if (item.category == ItemCategory.personality) {
+      _makina.applyPersonalityChange(item.braveChange, item.dependentChange);
+      _currentMessage = "マキナ：${item.name}、ありがとう！なんだか新しい自分になれた気がするよ。";
+    } else if (item.duration != null) {
+      _makina.activeBuffs.add(ActiveBuff(
+        id: item.id,
+        name: item.name,
+        statMultiplier: item.statMultiplier,
+        timeReductionRate: item.timeReductionRate,
+        expiry: DateTime.now().add(item.duration!),
+      ));
+      _currentMessage = "マキナ：${item.name}のおかげで、力が湧いてきたよ！";
+    } else if (item.category == ItemCategory.outfit) {
+      _makina.currentOutfitId = item.id;
+      _currentMessage = "マキナ：わあ、素敵な服！似合ってるかな？";
+    }
+    await _saveMakina();
+    notifyListeners();
+  }
+
   Future<void> reincarnate() async {
     if (_makina.level < 30) return;
     _makina.reincarnate();
@@ -123,11 +153,8 @@ class GameProvider extends ChangeNotifier {
     _hasRankedUp = false;
     notifyListeners();
     final quest = _makina.currentQuest!;
-
-    // クリア済み判定を渡して成功率を計算
     final isCleared = _clearedQuestIds.contains(quest.id);
     final successRate = quest.calculateSuccessRate(_makina, isCleared);
-
     final random = Random();
     final success = random.nextDouble() < successRate;
     final exp = success ? quest.experienceReward : quest.failureExperience;
@@ -204,7 +231,7 @@ class GameProvider extends ChangeNotifier {
           lastQuest: null,
           lastQuestSuccess: null);
       _makina.changeIntimacy(res['intimacyChange'] as double);
-      _makina.changePersonality(
+      _makina.applyPersonalityChange(
           res['braveChange'] as double, res['dependentChange'] as double);
       _makina.addMemory(msg, res['response'] as String);
       _currentMessage = res['response'] as String;
@@ -302,9 +329,6 @@ class GameProvider extends ChangeNotifier {
     _newlyUnlockedAchievement = null;
     notifyListeners();
   }
-
-  Future<void> _unlockAchievementById(String id) async =>
-      await _unlockAchievement(id);
 
   Future<void> _checkAchievements(Quest q, bool s, double rate) async {
     if (s && _questCompletedCount == 1) await _unlockAchievement('first_quest');
