@@ -8,7 +8,9 @@ import 'equipment_screen.dart';
 import 'achievement_screen.dart';
 import 'debug_item_screen.dart';
 import 'reincarnation_screen.dart';
-import 'active_buff_screen.dart'; // ★追加
+import 'active_buff_screen.dart';
+import 'costume_screen.dart';
+import 'collection_screen.dart'; // ★追加
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -26,6 +28,21 @@ class HomeScreen extends StatelessWidget {
             icon: const Icon(Icons.bug_report, color: Colors.orangeAccent),
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const DebugItemScreen())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.checkroom, color: Colors.pink),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CostumeScreen()),
+            ),
+          ),
+          // ★図鑑ボタンを追加
+          IconButton(
+            icon: const Icon(Icons.menu_book, color: Colors.teal),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CollectionScreen()),
+            ),
           ),
           IconButton(
               icon: const Icon(Icons.emoji_events),
@@ -58,7 +75,6 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   _buildMakinaCard(context, provider),
                   const SizedBox(height: 20),
-                  // ★アクティブバフ表示を追加
                   if (provider.makina.activeBuffs.any((b) => !b.isExpired))
                     _buildActiveBuffsCard(context, provider),
                   if (provider.makina.activeBuffs.any((b) => !b.isExpired))
@@ -84,7 +100,26 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // ★アクティブバフ表示カード
+  String _getCostumeImagePath(String? costumeId) {
+    switch (costumeId) {
+      case 'school_uniform':
+        return 'assets/images/costume_school.png';
+      case 'knight_armor':
+        return 'assets/images/costume_knight.png';
+      case 'mage_robe':
+        return 'assets/images/costume_mage.png';
+      case 'casual':
+        return 'assets/images/costume_casual.png';
+      case 'swimsuit':
+        return 'assets/images/costume_swim.png';
+      case 'dress':
+        return 'assets/images/costume_dress.png';
+      case 'default':
+      default:
+        return 'assets/images/makina.png';
+    }
+  }
+
   Widget _buildActiveBuffsCard(BuildContext context, GameProvider provider) {
     final activeBuffs =
         provider.makina.activeBuffs.where((b) => !b.isExpired).toList();
@@ -141,7 +176,8 @@ class HomeScreen extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Row(
                       children: [
-                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                        const Icon(Icons.check_circle,
+                            color: Colors.green, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -236,6 +272,8 @@ class HomeScreen extends StatelessWidget {
 
   Widget _buildMakinaCard(BuildContext context, GameProvider provider) {
     final m = provider.makina;
+    final imagePath = _getCostumeImagePath(m.currentOutfitId);
+
     return Card(
       elevation: 4,
       child: Padding(
@@ -250,7 +288,7 @@ class HomeScreen extends StatelessWidget {
                     color: Colors.blue.shade50),
                 child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.asset('assets/images/makina.png',
+                    child: Image.asset(imagePath,
                         fit: BoxFit.contain,
                         errorBuilder: (_, __, ___) =>
                             const Icon(Icons.person, size: 100)))),

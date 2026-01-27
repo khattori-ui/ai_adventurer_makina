@@ -56,13 +56,21 @@ class GameProvider extends ChangeNotifier {
   Duration? get remainingTime {
     if (_makina.currentQuest == null || _makina.questStartTime == null)
       return null;
+
     double reduction = 1.0;
     for (var buff in _makina.activeBuffs) {
       if (!buff.isExpired && buff.timeReductionRate > 0) {
         reduction = min(reduction, 1.0 - buff.timeReductionRate);
       }
     }
-    final baseDuration = const Duration(seconds: 3); // テスト用3秒
+
+    // ⚠️ 本番用：questのdurationMinutesを使用
+    final baseDuration =
+        Duration(minutes: _makina.currentQuest!.durationMinutes);
+
+    // 🧪 テスト用：3秒に変更する場合はこちらをコメント解除
+    // final baseDuration = const Duration(seconds: 3);
+
     final actualDuration =
         Duration(seconds: (baseDuration.inSeconds * reduction).toInt());
     final endTime = _makina.questStartTime!.add(actualDuration);
@@ -331,9 +339,115 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> _checkAchievements(Quest q, bool s, double rate) async {
-    if (s && _questCompletedCount == 1) await _unlockAchievement('first_quest');
+    // クエスト成功回数
+    if (s && _questCompletedCount == 1) {
+      await _unlockAchievement('first_quest');
+    }
+    if (s && _questCompletedCount >= 10) {
+      await _unlockAchievement('quest_10');
+    }
+    if (s && _questCompletedCount >= 50) {
+      await _unlockAchievement('quest_50');
+    }
+    if (s && _questCompletedCount >= 100) {
+      await _unlockAchievement('quest_100');
+    }
+
+    // レベル到達
+    if (_makina.level >= 5) await _unlockAchievement('level_5');
+    if (_makina.level >= 10) await _unlockAchievement('level_10');
+    if (_makina.level >= 20) await _unlockAchievement('level_20');
     if (_makina.level >= 30) await _unlockAchievement('level_30');
-    if (s && rate <= 0.05) await _unlockAchievement('impossible_success');
+
+    // 装備関連
+    final totalEquipment = _makina.inventory.length +
+        (_makina.weapon != null ? 1 : 0) +
+        (_makina.armor != null ? 1 : 0) +
+        (_makina.shield != null ? 1 : 0) +
+        (_makina.bracelet != null ? 1 : 0) +
+        (_makina.boots != null ? 1 : 0);
+
+    if (totalEquipment >= 1) {
+      await _unlockAchievement('first_equipment');
+    }
+
+    if (_makina.weapon != null &&
+        _makina.armor != null &&
+        _makina.shield != null &&
+        _makina.bracelet != null &&
+        _makina.boots != null) {
+      await _unlockAchievement('full_equipment');
+    }
+
+    // エピック装備（rarity 3）
+    if (_makina.weapon?.rarity == 3 ||
+        _makina.armor?.rarity == 3 ||
+        _makina.shield?.rarity == 3 ||
+        _makina.bracelet?.rarity == 3 ||
+        _makina.boots?.rarity == 3 ||
+        _makina.inventory.any((e) => e.rarity == 3)) {
+      await _unlockAchievement('legendary_equipment');
+    }
+
+    // 親密度
+    if (_makina.intimacy >= 80) {
+      await _unlockAchievement('intimacy_80');
+    }
+    if (_makina.intimacy >= 100) {
+      await _unlockAchievement('intimacy_100');
+    }
+
+    // 特殊なクエスト（quest_data.dartのIDを確認して調整）
+    if (s && q.id == 'maou_quest') {
+      await _unlockAchievement('maou_clear');
+    }
+    if (s && q.id == 'true_maou_quest') {
+      await _unlockAchievement('true_maou_clear');
+    }
+    if (s && q.id == 'god_quest') {
+      await _unlockAchievement('god_slayer');
+    }
+
+    // 全クエストクリア
+    final allQuests = QuestData.getAllQuests();
+    if (_clearedQuestIds.length >= allQuests.length) {
+      await _unlockAchievement('all_quest_clear');
+    }
+
+    // 面白い実績
+    if (!s && _makina.level >= 20 && q.id == 'herb_gathering') {
+      await _unlockAchievement('high_level_herb_fail');
+    }
+
+    if (s && rate <= 0.05) {
+      await _unlockAchievement('impossible_success');
+    }
+
+    // 連続失敗
+    if (_consecutiveFail >= 10) {
+      await _unlockAchievement('ten_fail_streak');
+    }
+
+    // 連続成功
+    if (_consecutiveSuccess >= 10) {
+      await _unlockAchievement('ten_success_streak');
+    }
+
+    // スピードランナー（1日で10回クリア）
+    // これには追加のトラッキングが必要
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final todayKey = 'quests_today_$today';
+    final todayCount = prefs.getInt(todayKey) ?? 0;
+
+    if (s) {
+      final newCount = todayCount + 1;
+      await prefs.setInt(todayKey, newCount);
+
+      if (newCount >= 10) {
+        await _unlockAchievement('speed_runner');
+      }
+    }
   }
 
   @override
