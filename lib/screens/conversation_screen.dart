@@ -13,10 +13,20 @@ class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<ChatMessage> _messages = [];
   bool _isProcessing = false;
+  int _characterCount = 0; // ★追加：文字数カウント
+  static const int _maxCharacters = 500; // ★追加：最大文字数
 
   @override
   void initState() {
     super.initState();
+
+    // ★追加：文字数カウンターのリスナー
+    _messageController.addListener(() {
+      setState(() {
+        _characterCount = _messageController.text.length;
+      });
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<GameProvider>(context, listen: false);
       if (provider.currentMessage != null) {
@@ -116,30 +126,73 @@ class _ConversationScreenState extends State<ConversationScreen> {
     );
   }
 
+  // ★改善：文字数カウンター付き入力エリア
   Widget _buildInputArea() {
+    final isOverLimit = _characterCount > _maxCharacters;
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: const InputDecoration(
-                hintText: 'メッセージを入力...',
-                border: OutlineInputBorder(),
+          // ★追加：文字数カウンター（入力中のみ表示）
+          if (_characterCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '$_characterCount / $_maxCharacters',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isOverLimit ? Colors.red : Colors.grey,
+                      fontWeight:
+                          isOverLimit ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ],
               ),
-              enabled: !_isProcessing,
             ),
-          ),
-          IconButton(
-            onPressed: _isProcessing
-                ? null
-                : () => _sendMessage(_messageController.text),
-            icon: _isProcessing
-                ? const CircularProgressIndicator()
-                : const Icon(Icons.send),
-            color: Colors.deepPurple,
+
+          // 入力フィールド
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: InputDecoration(
+                    hintText: 'メッセージを入力...',
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: isOverLimit ? Colors.red : Colors.grey,
+                      ),
+                    ),
+                    // ★追加：制限超過時のエラー表示
+                    errorText: isOverLimit ? '文字数制限を超えています' : null,
+                  ),
+                  enabled: !_isProcessing,
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: (_isProcessing || isOverLimit)
+                    ? null
+                    : () => _sendMessage(_messageController.text),
+                icon: _isProcessing
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send),
+                color: Colors.deepPurple,
+                disabledColor: Colors.grey,
+              ),
+            ],
           ),
         ],
       ),
@@ -149,10 +202,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty || _isProcessing) return;
 
-    // SEC-031: 500文字制限
-    if (text.length > 500) {
+    // 文字数チェック
+    if (text.length > _maxCharacters) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('メッセージは500文字以内にしてください')),
+        SnackBar(
+          content: Text('メッセージは$_maxCharacters文字以内にしてください'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -160,6 +216,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
     setState(() {
       _messages.add(ChatMessage(text: text, isPlayer: true));
       _messageController.clear();
+      _characterCount = 0; // ★追加：カウンターリセット
       _isProcessing = true;
     });
 

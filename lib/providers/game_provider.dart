@@ -42,6 +42,8 @@ class GameProvider extends ChangeNotifier {
   QuestResult? _questResult;
 
   Makina get makina => _makina;
+  // クリア済みのクエストID一覧を画面から見れるようにする
+  List<String> get clearedQuestIds => _clearedQuestIds;
   bool get isLoading => _isLoading;
   String? get currentMessage => _currentMessage;
   Equipment? get droppedEquipment => _droppedEquipment;

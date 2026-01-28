@@ -63,20 +63,34 @@ class EquipmentScreen extends StatelessWidget {
     );
   }
 
-  // 画像表示パーツ
-  Widget _buildSlotIconOrImage(String slotId, int? rarity) {
+  // ★ 改善：共通の装備アイコンウィジェット（スケール統一）
+  Widget _buildEquipmentIcon(String slotId, int? rarity, {double size = 60}) {
     String imagePath = 'assets/images/$slotId.png';
 
-    return Image.asset(
-      imagePath,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        return Icon(
-          _getSlotIcon(slotId),
-          color: rarity != null ? _getRarityColor(rarity) : Colors.deepPurple,
-          size: 80,
-        );
-      },
+    // 武器は2.0倍、他は1.5倍に統一（バランス改善）
+    double scale = (slotId == 'weapon') ? 2.0 : 1.5;
+
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Center(
+        child: Transform.scale(
+          scale: scale,
+          child: Image.asset(
+            imagePath,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return Icon(
+                _getSlotIcon(slotId),
+                color: rarity != null
+                    ? _getRarityColor(rarity)
+                    : Colors.deepPurple,
+                size: size * 0.6,
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 
@@ -87,24 +101,12 @@ class EquipmentScreen extends StatelessWidget {
     String slotId,
     Equipment? equipment,
   ) {
-    // ★ここを変更：剣を 1.2倍 -> 2.0倍 にアップ！
-    double scale = (slotId == 'weapon') ? 2.0 : 2.8;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: Colors.grey.shade100,
       clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: SizedBox(
-          width: 140,
-          height: 140,
-          child: Center(
-            child: Transform.scale(
-              scale: scale,
-              child: _buildSlotIconOrImage(slotId, equipment?.rarity),
-            ),
-          ),
-        ),
+        leading: _buildEquipmentIcon(slotId, equipment?.rarity, size: 60),
         title: Text(slotName, style: const TextStyle(fontSize: 18)),
         subtitle: equipment != null
             ? Column(
@@ -200,23 +202,12 @@ class EquipmentScreen extends StatelessWidget {
     GameProvider provider,
     Equipment equipment,
   ) {
-    // ★ここも変更：所持品リストの剣も大きく
-    double scale = (equipment.slot == 'weapon') ? 2.0 : 2.8;
-
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: SizedBox(
-          width: 140,
-          height: 140,
-          child: Center(
-            child: Transform.scale(
-              scale: scale,
-              child: _buildSlotIconOrImage(equipment.slot, equipment.rarity),
-            ),
-          ),
-        ),
+        leading:
+            _buildEquipmentIcon(equipment.slot, equipment.rarity, size: 60),
         title: Text(
           equipment.name,
           style: TextStyle(
@@ -264,21 +255,9 @@ class EquipmentScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: availableEquipment.map((equipment) {
-              // ★ここも変更：ダイアログの剣も大きく
-              double scale = (equipment.slot == 'weapon') ? 2.0 : 2.8;
-
               return ListTile(
-                leading: SizedBox(
-                  width: 140,
-                  height: 140,
-                  child: Center(
-                    child: Transform.scale(
-                      scale: scale,
-                      child: _buildSlotIconOrImage(
-                          equipment.slot, equipment.rarity),
-                    ),
-                  ),
-                ),
+                leading: _buildEquipmentIcon(equipment.slot, equipment.rarity,
+                    size: 60),
                 title: Text(
                   equipment.name,
                   style: TextStyle(

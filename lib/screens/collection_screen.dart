@@ -63,7 +63,7 @@ class QuestCollectionTab extends StatelessWidget {
       builder: (context, provider, child) {
         final allQuests = QuestData.getAllQuests();
         final clearedQuests =
-            allQuests.where((q) => _isQuestCleared(q.id)).toList();
+            allQuests.where((q) => _isQuestCleared(provider, q.id)).toList();
         final availableQuests = allQuests
             .where((q) => q.requiredGuildRank <= provider.makina.guildRank)
             .toList();
@@ -86,7 +86,7 @@ class QuestCollectionTab extends StatelessWidget {
                   itemCount: allQuests.length,
                   itemBuilder: (context, index) {
                     final quest = allQuests[index];
-                    final isCleared = _isQuestCleared(quest.id);
+                    final isCleared = _isQuestCleared(provider, quest.id);
                     final isAvailable =
                         quest.requiredGuildRank <= provider.makina.guildRank;
                     return _buildQuestCard(
@@ -101,9 +101,9 @@ class QuestCollectionTab extends StatelessWidget {
     );
   }
 
-  bool _isQuestCleared(String questId) {
-    // SharedPreferencesから取得する必要があるが、簡易的に実装
-    return false; // 実際はproviderから取得
+  // 実際のクリア履歴（provider）をチェックする仕組みにアップデート！
+  bool _isQuestCleared(GameProvider provider, String questId) {
+    return provider.clearedQuestIds.contains(questId);
   }
 
   Widget _buildQuestStats(int cleared, int total, int available) {
