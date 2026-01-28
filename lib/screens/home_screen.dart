@@ -11,6 +11,7 @@ import 'reincarnation_screen.dart';
 import 'active_buff_screen.dart';
 import 'costume_screen.dart';
 import 'collection_screen.dart'; // ★追加
+import 'shop_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -53,6 +54,13 @@ class HomeScreen extends StatelessWidget {
           IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => _showResetDialog(context)),
+          IconButton(
+            icon: const Icon(Icons.shopping_cart, color: Colors.amber),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ShopScreen()),
+            ),
+          ),
         ],
       ),
       body: Consumer<GameProvider>(

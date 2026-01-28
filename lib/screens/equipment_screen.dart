@@ -63,19 +63,19 @@ class EquipmentScreen extends StatelessWidget {
     );
   }
 
-  // ★ 改善：共通の装備アイコンウィジェット（スケール統一）
-  Widget _buildEquipmentIcon(String slotId, int? rarity, {double size = 60}) {
+  // ✨ 武器とそれ以外でサイズ感を分ける決定版
+  Widget _buildEquipmentIcon(String slotId, int? rarity, {double size = 80}) {
     String imagePath = 'assets/images/$slotId.png';
 
-    // 武器は2.0倍、他は1.5倍に統一（バランス改善）
-    double scale = (slotId == 'weapon') ? 2.0 : 1.5;
+    // 👈 武器は横長なのでそのまま(1.1倍)、それ以外は余白を埋めるために大きく(2.0倍)します
+    double scale = (slotId == 'weapon') ? 1.1 : 2.0;
 
     return SizedBox(
       width: size,
       height: size,
       child: Center(
         child: Transform.scale(
-          scale: scale,
+          scale: scale, // 👈 ここで種類ごとに大きさを変えます
           child: Image.asset(
             imagePath,
             fit: BoxFit.contain,
@@ -85,7 +85,7 @@ class EquipmentScreen extends StatelessWidget {
                 color: rarity != null
                     ? _getRarityColor(rarity)
                     : Colors.deepPurple,
-                size: size * 0.6,
+                size: size * 0.5,
               );
             },
           ),
@@ -106,7 +106,7 @@ class EquipmentScreen extends StatelessWidget {
       color: Colors.grey.shade100,
       clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: _buildEquipmentIcon(slotId, equipment?.rarity, size: 60),
+        leading: _buildEquipmentIcon(slotId, equipment?.rarity, size: 80),
         title: Text(slotName, style: const TextStyle(fontSize: 18)),
         subtitle: equipment != null
             ? Column(
@@ -257,7 +257,7 @@ class EquipmentScreen extends StatelessWidget {
             children: availableEquipment.map((equipment) {
               return ListTile(
                 leading: _buildEquipmentIcon(equipment.slot, equipment.rarity,
-                    size: 60),
+                    size: 80),
                 title: Text(
                   equipment.name,
                   style: TextStyle(
