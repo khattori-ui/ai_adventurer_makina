@@ -171,9 +171,10 @@ class Makina {
   }
 
   void levelUp() {
-    experience -= experienceToNextLevel;
-    level++;
-    experienceToNextLevel = (100 * pow(level, 2.9)).toInt();
+  experience -= experienceToNextLevel;
+  level++;
+  // ★ここを 3.1 から 2.9 に変更しました  <-- これだけ残す
+  experienceToNextLevel = (100 * pow(level, 2.9)).toInt();
     int bonus = 5 + (reincarnationCount * 2);
     attack += bonus;
     magic += bonus;
