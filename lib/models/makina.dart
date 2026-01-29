@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'item.dart';
 
+// --- 装備のデータ ---
 class Equipment {
   final String id;
   final String name;
@@ -12,19 +13,16 @@ class Equipment {
   final int intelligenceBonus;
   final int defenseBonus;
   final int rarity;
-
-  Equipment({
-    required this.id,
-    required this.name,
-    required this.slot,
-    this.attackBonus = 0,
-    this.magicBonus = 0,
-    this.speedBonus = 0,
-    this.intelligenceBonus = 0,
-    this.defenseBonus = 0,
-    this.rarity = 1,
-  });
-
+  Equipment(
+      {required this.id,
+      required this.name,
+      required this.slot,
+      this.attackBonus = 0,
+      this.magicBonus = 0,
+      this.speedBonus = 0,
+      this.intelligenceBonus = 0,
+      this.defenseBonus = 0,
+      this.rarity = 1});
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
@@ -34,23 +32,23 @@ class Equipment {
         'speedBonus': speedBonus,
         'intelligenceBonus': intelligenceBonus,
         'defenseBonus': defenseBonus,
-        'rarity': rarity,
+        'rarity': rarity
       };
-
   factory Equipment.fromJson(Map<String, dynamic> json) => Equipment(
-        id: json['id'],
-        name: json['name'],
-        slot: json['slot'],
-        attackBonus: json['attackBonus'] ?? 0,
-        magicBonus: json['magicBonus'] ?? 0,
-        speedBonus: json['speedBonus'] ?? 0,
-        intelligenceBonus: json['intelligenceBonus'] ?? 0,
-        defenseBonus: json['defenseBonus'] ?? 0,
-        rarity: json['rarity'] ?? 1,
-      );
+      id: json['id'],
+      name: json['name'],
+      slot: json['slot'],
+      attackBonus: json['attackBonus'] ?? 0,
+      magicBonus: json['magicBonus'] ?? 0,
+      speedBonus: json['speedBonus'] ?? 0,
+      intelligenceBonus: json['intelligenceBonus'] ?? 0,
+      defenseBonus: json['defenseBonus'] ?? 0,
+      rarity: json['rarity'] ?? 1);
 }
 
+// --- マキナ本体のデータ ---
 class Makina {
+  String uid;
   int level;
   int experience;
   int experienceToNextLevel;
@@ -76,11 +74,20 @@ class Makina {
   DateTime? questStartTime;
   List<ConversationMemory> recentMemories;
 
-  // バフと衣装の追加
   String? currentOutfitId;
   List<ActiveBuff> activeBuffs;
 
+  bool hasSeenPrologue;
+  bool hasSeenTutorial;
+  List<String> clearedQuestIds;
+  Map<String, dynamic> achievementData;
+
+  // 👈 1. 1日の制限用データを追加
+  int dailyConversationCount;
+  String lastConversationDate;
+
   Makina({
+    this.uid = 'local_user',
     this.level = 1,
     this.experience = 0,
     this.experienceToNextLevel = 100,
@@ -106,17 +113,23 @@ class Makina {
     List<ConversationMemory>? recentMemories,
     this.currentOutfitId,
     List<ActiveBuff>? activeBuffs,
+    this.hasSeenPrologue = false,
+    this.hasSeenTutorial = false,
+    List<String>? clearedQuestIds,
+    this.achievementData = const {},
+    // 👈 2. 初期値（今日の日付と0回）を設定
+    this.dailyConversationCount = 0,
+    this.lastConversationDate = '',
   })  : inventory = inventory ?? [],
         recentMemories = recentMemories ?? [],
-        activeBuffs = activeBuffs ?? [];
+        activeBuffs = activeBuffs ?? [],
+        clearedQuestIds = clearedQuestIds ?? [];
 
-  // バフを計算に入れる内部メソッド
+  // ... (addExperience, levelUp, reincarnate 等のメソッドはそのまま保持)
   int _applyBuff(int baseValue) {
     double multiplier = 1.0;
     for (var buff in activeBuffs) {
-      if (!buff.isExpired) {
-        multiplier = max(multiplier, buff.statMultiplier);
-      }
+      if (!buff.isExpired) multiplier = max(multiplier, buff.statMultiplier);
     }
     return (baseValue * multiplier).toInt();
   }
@@ -154,16 +167,14 @@ class Makina {
 
   void addExperience(int exp) {
     experience += exp;
-    while (experience >= experienceToNextLevel) {
-      levelUp();
-    }
+    while (experience >= experienceToNextLevel) levelUp();
   }
 
   void levelUp() {
-    experience -= experienceToNextLevel;
-    level++;
-    // ★ここを 3.1 から 2.9 に変更しました
-    experienceToNextLevel = (100 * pow(level, 2.9)).toInt();
+  experience -= experienceToNextLevel;
+  level++;
+  // ★ここを 3.1 から 2.9 に変更しました  <-- これだけ残す
+  experienceToNextLevel = (100 * pow(level, 2.9)).toInt();
     int bonus = 5 + (reincarnationCount * 2);
     attack += bonus;
     magic += bonus;
@@ -183,11 +194,12 @@ class Makina {
     speed = 10;
     intelligence = 10;
     defense = 10;
+    intimacy = 50.0;
+    guildRank = 0;
   }
 
   void changeIntimacy(double delta) =>
       intimacy = (intimacy + delta).clamp(0.0, 100.0);
-
   void applyPersonalityChange(double b, double d) {
     brave = (brave + b).clamp(-100.0, 100.0);
     dependent = (dependent + d).clamp(-100.0, 100.0);
@@ -206,7 +218,7 @@ class Makina {
   void addMemory(String pm, String mr) {
     recentMemories.add(ConversationMemory(
         playerMessage: pm, makinaResponse: mr, timestamp: DateTime.now()));
-    if (recentMemories.length > 5) recentMemories.removeAt(0);
+    if (recentMemories.length > 20) recentMemories.removeAt(0);
   }
 
   void equipItem(Equipment e) {
@@ -262,39 +274,36 @@ class Makina {
       inventory.any((item) => item.id == id);
 
   Map<String, dynamic> toJson() => {
-        'level': level,
-        'experience': experience,
+        'uid': uid, 'level': level, 'experience': experience,
         'experienceToNextLevel': experienceToNextLevel,
-        'attack': attack,
-        'magic': magic,
-        'speed': speed,
-        'intelligence': intelligence,
-        'defense': defense,
-        'intimacy': intimacy,
-        'brave': brave,
-        'dependent': dependent,
+        'attack': attack, 'magic': magic, 'speed': speed,
+        'intelligence': intelligence, 'defense': defense,
+        'intimacy': intimacy, 'brave': brave, 'dependent': dependent,
         'guildRank': guildRank,
         'questSuccessCountForCurrentRank': questSuccessCountForCurrentRank,
         'reincarnationCount': reincarnationCount,
-        'weapon': weapon?.toJson(),
-        'armor': armor?.toJson(),
+        'weapon': weapon?.toJson(), 'armor': armor?.toJson(),
         'shield': shield?.toJson(),
-        'bracelet': bracelet?.toJson(),
-        'boots': boots?.toJson(),
+        'bracelet': bracelet?.toJson(), 'boots': boots?.toJson(),
         'inventory': inventory.map((e) => e.toJson()).toList(),
         'currentQuest': currentQuest?.toJson(),
         'questStartTime': questStartTime?.toIso8601String(),
         'recentMemories': recentMemories.map((m) => m.toJson()).toList(),
         'currentOutfitId': currentOutfitId,
         'activeBuffs': activeBuffs.map((b) => b.toJson()).toList(),
+        'hasSeenPrologue': hasSeenPrologue, 'hasSeenTutorial': hasSeenTutorial,
+        'clearedQuestIds': clearedQuestIds, 'achievementData': achievementData,
+        // 👈 3. 保存対象に追加
+        'dailyConversationCount': dailyConversationCount,
+        'lastConversationDate': lastConversationDate,
       };
 
   factory Makina.fromJson(Map<String, dynamic> json) => Makina(
+        uid: json['uid'] ?? 'local_user',
         level: json['level'] ?? 1,
         experience: json['experience'] ?? 0,
         experienceToNextLevel: json['experienceToNextLevel'] ?? 100,
-        attack: json['attack'] ?? 10,
-        magic: json['magic'] ?? 10,
+        attack: json['attack'] ?? 10, magic: json['magic'] ?? 10,
         speed: json['speed'] ?? 10,
         intelligence: json['intelligence'] ?? 10,
         defense: json['defense'] ?? 10,
@@ -336,9 +345,19 @@ class Makina {
                 .map((b) => ActiveBuff.fromJson(b))
                 .toList()
             : [],
+        hasSeenPrologue: json['hasSeenPrologue'] ?? false,
+        hasSeenTutorial: json['hasSeenTutorial'] ?? false,
+        clearedQuestIds: json['clearedQuestIds'] != null
+            ? List<String>.from(json['clearedQuestIds'])
+            : [],
+        achievementData: json['achievementData'] ?? {},
+        // 👈 4. 読み込み対象に追加
+        dailyConversationCount: json['dailyConversationCount'] ?? 0,
+        lastConversationDate: json['lastConversationDate'] ?? '',
       );
 }
 
+// ... (ConversationMemory, Quest クラスはそのまま保持)
 class ConversationMemory {
   final String playerMessage;
   final String makinaResponse;
@@ -375,7 +394,6 @@ class Quest {
   final int failureExperience;
   final double dropRate;
   final List<String> possibleDrops;
-
   Quest(
       {required this.id,
       required this.name,
@@ -392,7 +410,6 @@ class Quest {
       required this.failureExperience,
       this.dropRate = 0.0,
       this.possibleDrops = const []});
-
   double calculateSuccessRate(Makina makina, bool isCleared) {
     List<double> r = [];
     List<double> w = [];

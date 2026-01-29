@@ -13,10 +13,17 @@ class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<ChatMessage> _messages = [];
   bool _isProcessing = false;
+  int _characterCount = 0;
+  static const int _maxCharacters = 500;
 
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(() {
+      setState(() {
+        _characterCount = _messageController.text.length;
+      });
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<GameProvider>(context, listen: false);
       if (provider.currentMessage != null) {
@@ -42,6 +49,24 @@ class _ConversationScreenState extends State<ConversationScreen> {
       appBar: AppBar(
         title: const Text('マキナとの会話'),
         backgroundColor: Colors.deepPurple,
+        // 👈 右上に残り回数を表示！
+        actions: [
+          Consumer<GameProvider>(
+            builder: (context, provider, child) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Chip(
+                    label: Text('あと ${provider.remainingConversations}回'),
+                    backgroundColor: Colors.white24,
+                    labelStyle:
+                        const TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -100,7 +125,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
         : (makina.intimacy >= 40
             ? ['よくやった', '次も頑張って', 'お疲れ様']
             : ['報告ご苦労', 'そうか', '次はもっと頑張れ']);
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Wrap(
@@ -117,29 +141,73 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Widget _buildInputArea() {
+    final provider = Provider.of<GameProvider>(context);
+    final isOverLimit = _characterCount > _maxCharacters;
+    // 👈 会話制限に達しているかチェック
+    final isStaminaEmpty = provider.remainingConversations <= 0;
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: const InputDecoration(
-                hintText: 'メッセージを入力...',
-                border: OutlineInputBorder(),
+          if (_characterCount > 0)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '$_characterCount / $_maxCharacters',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isOverLimit ? Colors.red : Colors.grey,
+                      fontWeight:
+                          isOverLimit ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ],
               ),
-              enabled: !_isProcessing,
             ),
-          ),
-          IconButton(
-            onPressed: _isProcessing
-                ? null
-                : () => _sendMessage(_messageController.text),
-            icon: _isProcessing
-                ? const CircularProgressIndicator()
-                : const Icon(Icons.send),
-            color: Colors.deepPurple,
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  decoration: InputDecoration(
+                    hintText:
+                        isStaminaEmpty ? '今日はもう疲れちゃったみたい...' : 'メッセージを入力...',
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: isOverLimit ? Colors.red : Colors.grey,
+                      ),
+                    ),
+                    errorText: isOverLimit
+                        ? '文字数制限を超えています'
+                        : (isStaminaEmpty ? '1日の制限に達しました' : null),
+                  ),
+                  enabled: !_isProcessing && !isStaminaEmpty, // 👈 制限時は入力不可
+                  maxLines: null,
+                  keyboardType: TextInputType.multiline,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: (_isProcessing || isOverLimit || isStaminaEmpty)
+                    ? null
+                    : () => _sendMessage(_messageController.text),
+                icon: _isProcessing
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send),
+                color: Colors.deepPurple,
+                disabledColor: Colors.grey,
+              ),
+            ],
           ),
         ],
       ),
@@ -148,21 +216,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
 
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty || _isProcessing) return;
-
-    // SEC-031: 500文字制限
-    if (text.length > 500) {
+    if (text.length > _maxCharacters) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('メッセージは500文字以内にしてください')),
+        const SnackBar(
+          content: Text('メッセージは500文字以内にしてください'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
-
     setState(() {
       _messages.add(ChatMessage(text: text, isPlayer: true));
       _messageController.clear();
+      _characterCount = 0;
       _isProcessing = true;
     });
-
     final provider = Provider.of<GameProvider>(context, listen: false);
     try {
       await provider.respondToPlayer(text);
