@@ -365,28 +365,34 @@ class HomeScreen extends StatelessWidget {
 
   void _showQuestResultDialog(BuildContext context, GameProvider provider) {
     final res = provider.questResult!;
+    // 修正：拡張子を.pngに統一
     final String imagePath = res.isSuccess
-        ? 'assets/images/quest_success_bg.jpg'
-        : 'assets/images/quest_failure_bg.jpg';
+        ? 'assets/images/quest_success_bg.png'
+        : 'assets/images/quest_failure_bg.png';
 
     showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => AlertDialog(
               title: Text(res.isSuccess ? "クエスト成功！" : "失敗..."),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.asset(imagePath,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.image_not_supported, size: 100)),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(res.message),
-                ],
+              // 修正：スクロール可能にする
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 修正：画像全体が見えるように contain に変更し、高さを少し確保
+                    SizedBox(
+                      height: 250, // 高さを確保
+                      width: double.infinity,
+                      child: Image.asset(imagePath,
+                          fit: BoxFit.contain, // 全体が見えるように縮小
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.image_not_supported, size: 100)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(res.message),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(

@@ -1,46 +1,50 @@
 name: ai_adventurer_makina
-description: "A new Flutter project."
+description: AI冒険者マキナ - AI育成ゲーム
 publish_to: 'none'
-
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.6
-  
-  # 状態管理とストレージ
+
+  # 状態管理
   provider: ^6.1.1
-  shared_preferences: ^2.3.0  # バージョンを少し上げました
-  
-  # Firebase関連（最新版に更新しました）
-  # 👈 ここが今回のエラー解決の鍵です
-  firebase_core: ^3.10.1
-  firebase_auth: ^5.4.4
-  cloud_firestore: ^5.6.2
-  
-  # AI通信・環境変数・暗号化
-  http: ^1.2.0
-  flutter_dotenv: ^5.1.0
+
+  # Firebase
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  cloud_firestore: ^6.1.2
+
+  # ローカルストレージ
+  shared_preferences: ^2.2.2
+
+  # 暗号化
   crypto: ^3.0.3
-  
+
+  # 環境変数
+  flutter_dotenv: ^6.0.0
+
+  # HTTP通信
+  http: ^1.1.2
+
   # 日付フォーマット
-  intl: ^0.19.0
+  intl: ^0.20.2
+
+  # UI関連
+  cupertino_icons: ^1.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
 
-  # 🖼️ 画像と設定ファイルの登録
+  # 画像アセットの登録
   assets:
-    - .env
     - assets/images/
-    - assets/images/logo.png
-    - assets/images/makina.png
+    - .env

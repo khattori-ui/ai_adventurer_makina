@@ -305,7 +305,7 @@ class Makina {
     level++;
     // 👇 ここが経験値の指数関数（累乗数）です
     experienceToNextLevel = (100 * pow(level, 2.9)).toInt();
-    int b = 5 + (reincarnationCount * 2);
+    int b = 5 + (reincarnationCount * 2); // ...（ステータスアップ処理）
     attack += b;
     magic += b;
     speed += b - 2;
