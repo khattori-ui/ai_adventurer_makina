@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "832213740679",
+    "project_id": "ai-adventurer-makina",
+    "storage_bucket": "ai-adventurer-makina.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:832213740679:android:ed65625da446ecfcab5c22",
+        "android_client_info": {
+          "package_name": "com.example.ai_adventurer_makina"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAB_mtIFMhSXB20IC162R_osOiRRfkbFvY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

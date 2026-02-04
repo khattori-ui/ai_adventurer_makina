@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-// データの整合性をチェックするためのクラス
 class EncryptionService {
-  // 🔑 秘密の鍵（これを変えると古いセーブデータが読み込めなくなるので注意！）
-  static const String _secretKey = "makina-security-key-2026-accel";
+  // .envからのみ読み込む（キーがない場合は空文字を返し、セーブデータの不整合を防ぐ）
+  static String get _secretKey => dotenv.env['SAVE_DATA_SECRET_KEY'] ?? "";
 
   /// データから「指紋（ハッシュ値）」を作成します
   static String generateHash(String data) {

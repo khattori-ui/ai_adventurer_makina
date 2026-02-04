@@ -23,7 +23,7 @@ class Costume {
 }
 
 class CostumeScreen extends StatelessWidget {
-  const CostumeScreen({Key? key}) : super(key: key);
+  const CostumeScreen({super.key});
 
   // 利用可能なコスチュームリスト
   static final List<Costume> allCostumes = [

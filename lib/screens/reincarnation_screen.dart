@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 
 class ReincarnationScreen extends StatelessWidget {
-  const ReincarnationScreen({Key? key}) : super(key: key);
+  const ReincarnationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

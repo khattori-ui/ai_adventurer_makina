@@ -4,7 +4,7 @@ import '../providers/game_provider.dart';
 import '../models/item.dart';
 
 class ShopScreen extends StatelessWidget {
-  const ShopScreen({Key? key}) : super(key: key);
+  const ShopScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

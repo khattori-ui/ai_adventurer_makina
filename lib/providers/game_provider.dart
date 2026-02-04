@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/makina.dart';
 import '../models/item.dart';
 import '../services/storage_service.dart';
@@ -16,12 +16,13 @@ class QuestResult {
   final int expGained;
   final Equipment? drop;
   final String message;
-  QuestResult(
-      {required this.isSuccess,
-      required this.questName,
-      required this.expGained,
-      this.drop,
-      required this.message});
+  QuestResult({
+    required this.isSuccess,
+    required this.questName,
+    required this.expGained,
+    this.drop,
+    required this.message,
+  });
 }
 
 class GameProvider extends ChangeNotifier {
@@ -35,7 +36,6 @@ class GameProvider extends ChangeNotifier {
   bool _hasRankedUp = false;
   QuestResult? _questResult;
 
-  // 👈 1. 1日の上限設定（とりあえず50回）
   static const int maxDailyConversations = 50;
 
   Makina get makina => _makina;
@@ -51,32 +51,21 @@ class GameProvider extends ChangeNotifier {
   QuestResult? get questResult => _questResult;
   List<String> get clearedQuestIds => _makina.clearedQuestIds;
 
-  // 👈 2. 残り会話回数を教える
   int get remainingConversations =>
       maxDailyConversations - _makina.dailyConversationCount;
 
-  // クエストの残り時間を計算する命令
   Duration? get remainingTime {
-    if (_makina.currentQuest == null || _makina.questStartTime == null)
+    if (_makina.currentQuest == null || _makina.questStartTime == null) {
       return null;
-
-    // --- 🧪 テスト設定：ここを書き換えます ---
-
-    // 【本番用】本来の時間（分）を使う場合はこちら
-    // final baseDuration = Duration(minutes: _makina.currentQuest!.durationMinutes);
-
-    // 【テスト用】一律「3秒」で終わらせる場合はこちら
+    }
+    // ★ ここを10秒から3秒に戻しました
     final baseDuration = const Duration(seconds: 3);
-
-    // ------------------------------------
-
     double reduction = 1.0;
     for (var buff in _makina.activeBuffs) {
       if (!buff.isExpired && buff.timeReductionRate > 0) {
         reduction = min(reduction, 1.0 - buff.timeReductionRate);
       }
     }
-
     final actualDuration =
         Duration(seconds: (baseDuration.inSeconds * reduction).toInt());
     final endTime = _makina.questStartTime!.add(actualDuration);
@@ -91,35 +80,44 @@ class GameProvider extends ChangeNotifier {
   Future<void> _initialize() async {
     _isLoading = true;
     notifyListeners();
-    final savedMakina = await StorageService.loadMakina();
-    if (savedMakina != null) {
-      _makina = savedMakina;
-      _loadAchievementsFromMakina();
-      if (_makina.currentQuest != null && _makina.questStartTime != null)
-        _startQuestTimer();
+    _loadAchievementsFromMakina();
+
+    try {
+      final savedMakina = await StorageService.loadMakina();
+      if (savedMakina != null) {
+        _makina = savedMakina;
+        _loadAchievementsFromMakina();
+        if (_makina.currentQuest != null && _makina.questStartTime != null) {
+          _startQuestTimer();
+        }
+      }
+    } catch (e) {
+      debugPrint("初期化エラー: $e");
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<void> reincarnate() async {
-    if (_makina.level < 30) return;
-    _makina.reincarnate();
-    await _saveMakina();
-    _currentMessage = "師匠、転生完了だよ！";
-    notifyListeners();
+    if (_makina.level < 30) return; // 1. レベル30以上かチェック
+    _makina.reincarnate(); // 2. マキナ本体のステータスをリセット
+    await _saveMakina(); // 3. データを保存（Firestore/ローカル）
+    _currentMessage = "師匠、転生完了だよ！"; // 4. メッセージを更新
+    notifyListeners(); // 5. 画面に反映
   }
 
   Future<void> useItem(ShopItem item) async {
     if (item.category == ItemCategory.personality) {
-      _makina.applyPersonalityChange(item.braveChange, item.dependentChange);
+      _makina.applyPersonalityChange(
+          item.braveChange.toDouble(), item.dependentChange.toDouble());
       _currentMessage = "マキナ：${item.name}、ありがとう！";
     } else if (item.duration != null) {
       _makina.activeBuffs.add(ActiveBuff(
         id: item.id,
         name: item.name,
-        statMultiplier: item.statMultiplier,
-        timeReductionRate: item.timeReductionRate,
+        statMultiplier: item.statMultiplier.toDouble(),
+        timeReductionRate: item.timeReductionRate.toDouble(),
         expiry: DateTime.now().add(item.duration!),
       ));
       _currentMessage = "マキナ：${item.name}のおかげで、力が湧いてきたよ！";
@@ -156,72 +154,80 @@ class GameProvider extends ChangeNotifier {
     _isLoading = true;
     _hasRankedUp = false;
     notifyListeners();
-    final quest = _makina.currentQuest!;
-    final isCleared = _makina.clearedQuestIds.contains(quest.id);
-    final successRate = quest.calculateSuccessRate(_makina, isCleared);
-    final random = Random();
-    final success = random.nextDouble() < successRate;
-    final exp = success ? quest.experienceReward : quest.failureExperience;
-    _makina.addExperience(exp);
-    _droppedEquipment = null;
-    if (success &&
-        quest.possibleDrops.isNotEmpty &&
-        random.nextDouble() < quest.dropRate) {
-      final availableDrops =
-          quest.possibleDrops.where((id) => !_makina.hasEquipment(id)).toList();
-      if (availableDrops.isNotEmpty) {
-        final dropId = availableDrops[random.nextInt(availableDrops.length)];
-        final equipment = QuestData.getEquipmentById(dropId);
-        if (equipment != null) {
-          _droppedEquipment = equipment;
-          _makina.addToInventory(equipment);
+
+    try {
+      final quest = _makina.currentQuest!;
+      final isCleared = _makina.clearedQuestIds.contains(quest.id);
+      final successRate = quest.calculateSuccessRate(_makina, isCleared);
+      final random = Random();
+      final success = random.nextDouble() < successRate;
+      final exp = success ? quest.experienceReward : quest.failureExperience;
+
+      _makina.addExperience(exp);
+      _droppedEquipment = null;
+
+      if (success &&
+          quest.possibleDrops.isNotEmpty &&
+          random.nextDouble() < quest.dropRate) {
+        final availableDrops = quest.possibleDrops
+            .where((id) => !_makina.hasEquipment(id))
+            .toList();
+        if (availableDrops.isNotEmpty) {
+          final dropId = availableDrops[random.nextInt(availableDrops.length)];
+          final equipment = QuestData.getEquipmentById(dropId);
+          if (equipment != null) {
+            _droppedEquipment = equipment;
+            _makina.addToInventory(equipment);
+          }
         }
       }
-    }
-    String report = '';
-    try {
-      report = await AIService.generateQuestReport(
+
+      String report = await AIService.generateQuestReport(
           makina: _makina, quest: quest, success: success);
-    } catch (e) {
-      report = success ? '成功したよ！' : '失敗しちゃった...';
-    }
-    _currentMessage = report;
-    _makina.currentQuest = null;
-    _makina.questStartTime = null;
-    if (success) {
-      if (quest.requiredGuildRank == _makina.guildRank) {
-        _makina.recordQuestSuccess();
-        if (_makina
-            .tryRankUp(QuestData.getQuestsRequiredForRankUp(_makina.guildRank)))
-          _hasRankedUp = true;
+      _currentMessage = report;
+      _makina.currentQuest = null;
+      _makina.questStartTime = null;
+
+      if (success) {
+        if (quest.requiredGuildRank == _makina.guildRank) {
+          _makina.recordQuestSuccess();
+          if (_makina.tryRankUp(
+              QuestData.getQuestsRequiredForRankUp(_makina.guildRank))) {
+            _hasRankedUp = true;
+          }
+        }
+        if (!_makina.clearedQuestIds.contains(quest.id)) {
+          _makina.clearedQuestIds.add(quest.id);
+        }
       }
-      if (!_makina.clearedQuestIds.contains(quest.id))
-        _makina.clearedQuestIds.add(quest.id);
+
+      await _checkAchievements(quest, success, successRate);
+
+      // ★ 画面に結果を表示するために結果をセットします
+      _questResult = QuestResult(
+          isSuccess: success,
+          questName: quest.name,
+          expGained: exp,
+          drop: _droppedEquipment,
+          message: report);
+
+      await _saveMakina();
+    } catch (e) {
+      debugPrint("クエスト完了エラー: $e");
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    await _checkAchievements(quest, success, successRate);
-    _questResult = QuestResult(
-        isSuccess: success,
-        questName: quest.name,
-        expGained: exp,
-        drop: _droppedEquipment,
-        message: report);
-    await _saveMakina();
-    _isLoading = false;
-    notifyListeners();
   }
 
-  // 👈 3. 会話制限のロジックを組み込む
   Future<void> respondToPlayer(String msg) async {
     if (msg.trim().isEmpty) return;
-
-    // 日付チェック（1日経っていたらリセット）
     final today = DateTime.now().toIso8601String().substring(0, 10);
     if (_makina.lastConversationDate != today) {
       _makina.dailyConversationCount = 0;
       _makina.lastConversationDate = today;
     }
 
-    // 制限チェック
     if (_makina.dailyConversationCount >= maxDailyConversations) {
       _currentMessage = 'マキナ：ごめんね、魔力を使いすぎちゃって疲れちゃったみたい…。また明日になったら、元気にお話ししようね！';
       notifyListeners();
@@ -236,21 +242,19 @@ class GameProvider extends ChangeNotifier {
           playerMessage: msg,
           lastQuest: null,
           lastQuestSuccess: null);
-      _makina.changeIntimacy(res['intimacyChange'] as double);
-      _makina.applyPersonalityChange(
-          res['braveChange'] as double, res['dependentChange'] as double);
+      _makina.changeIntimacy((res['intimacyChange'] ?? 0.0).toDouble());
+      _makina.applyPersonalityChange((res['braveChange'] ?? 0.0).toDouble(),
+          (res['dependentChange'] ?? 0.0).toDouble());
       _makina.addMemory(msg, res['response'] as String);
-
-      // 回数を増やす！
       _makina.dailyConversationCount++;
-
       _currentMessage = res['response'] as String;
       await _saveMakina();
     } catch (e) {
-      _currentMessage = 'うまく話せないみたい...';
+      _currentMessage = 'マキナ：うう、頭の中がこんがらがっちゃった…（エラー）';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    _isLoading = false;
-    notifyListeners();
   }
 
   Future<void> _saveMakina() async {
@@ -280,19 +284,24 @@ class GameProvider extends ChangeNotifier {
 
   void _updateAchievementDataInMakina() {
     final Map<String, dynamic> data = {};
-    for (var a in _achievements) data[a.id] = a.toJson();
+    for (var a in _achievements) {
+      data[a.id] = a.toJson();
+    }
     _makina.achievementData = data;
   }
 
   Future<void> _unlockAchievement(String id) async {
-    final a = _achievements.firstWhere((a) => a.id == id);
-    if (!a.unlocked) {
-      a.unlocked = true;
-      a.unlockedAt = DateTime.now();
-      _newlyUnlockedAchievement = a;
-      await _saveMakina();
-      notifyListeners();
-    }
+    if (_achievements.isEmpty) return;
+    try {
+      final a = _achievements.firstWhere((a) => a.id == id);
+      if (!a.unlocked) {
+        a.unlocked = true;
+        a.unlockedAt = DateTime.now();
+        _newlyUnlockedAchievement = a;
+        await _saveMakina();
+        notifyListeners();
+      }
+    } catch (e) {}
   }
 
   void clearMessage() {
@@ -327,6 +336,7 @@ class GameProvider extends ChangeNotifier {
   List<Quest> getAvailableQuests() => QuestData.getAllQuests()
       .where((q) => q.requiredGuildRank <= _makina.guildRank)
       .toList();
+
   Future<void> resetGame() async {
     await StorageService.resetMakina();
     _makina = Makina();
@@ -337,8 +347,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> _checkAchievements(Quest q, bool s, double rate) async {
-    if (s && _makina.clearedQuestIds.length == 1)
-      await _unlockAchievement('first_quest');
+    if (s) await _unlockAchievement('first_quest');
     if (_makina.level >= 5) await _unlockAchievement('level_5');
   }
 

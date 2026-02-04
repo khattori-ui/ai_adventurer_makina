@@ -6,7 +6,7 @@ import 'story_screen.dart';
 import 'home_screen.dart';
 
 class TitleScreen extends StatefulWidget {
-  const TitleScreen({Key? key}) : super(key: key);
+  const TitleScreen({super.key});
 
   @override
   State<TitleScreen> createState() => _TitleScreenState();

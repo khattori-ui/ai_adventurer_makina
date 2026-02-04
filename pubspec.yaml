@@ -1,28 +1,46 @@
-name: ai_makina_adventure
-description: "AI冒険者マキナの開発プロジェクト"
+name: ai_adventurer_makina
+description: "A new Flutter project."
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.1.0 <4.0.0'
+  sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.1.0
-  shared_preferences: ^2.2.2
+  cupertino_icons: ^1.0.6
+  
+  # 状態管理とストレージ
   provider: ^6.1.1
-  intl: ^0.20.2
-  flutter_dotenv: ^6.0.0  # ここに移動しました
+  shared_preferences: ^2.3.0  # バージョンを少し上げました
+  
+  # Firebase関連（最新版に更新しました）
+  # 👈 ここが今回のエラー解決の鍵です
+  firebase_core: ^3.10.1
+  firebase_auth: ^5.4.4
+  cloud_firestore: ^5.6.2
+  
+  # AI通信・環境変数・暗号化
+  http: ^1.2.0
+  flutter_dotenv: ^5.1.0
+  crypto: ^3.0.3
+  
+  # 日付フォーマット
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.14.4
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true
+
+  # 🖼️ 画像と設定ファイルの登録
   assets:
+    - .env
     - assets/images/
-    - .env  # これを忘れずに追加
+    - assets/images/logo.png
+    - assets/images/makina.png

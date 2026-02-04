@@ -4,7 +4,7 @@ import '../providers/game_provider.dart';
 import '../models/makina.dart';
 
 class EquipmentScreen extends StatelessWidget {
-  const EquipmentScreen({Key? key}) : super(key: key);
+  const EquipmentScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -323,8 +323,9 @@ class EquipmentScreen extends StatelessWidget {
     if (equipment.attackBonus > 0) bonuses.add('攻撃+${equipment.attackBonus}');
     if (equipment.magicBonus > 0) bonuses.add('魔法+${equipment.magicBonus}');
     if (equipment.speedBonus > 0) bonuses.add('速さ+${equipment.speedBonus}');
-    if (equipment.intelligenceBonus > 0)
+    if (equipment.intelligenceBonus > 0) {
       bonuses.add('賢さ+${equipment.intelligenceBonus}');
+    }
     if (equipment.defenseBonus > 0) bonuses.add('防御+${equipment.defenseBonus}');
     return bonuses.join(', ');
   }

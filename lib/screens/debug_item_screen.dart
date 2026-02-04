@@ -4,7 +4,7 @@ import '../providers/game_provider.dart';
 import '../models/item.dart';
 
 class DebugItemScreen extends StatelessWidget {
-  const DebugItemScreen({Key? key}) : super(key: key);
+  const DebugItemScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

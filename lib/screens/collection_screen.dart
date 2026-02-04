@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/game_provider.dart';
 import '../data/quest_data.dart';
 import '../models/makina.dart';
 
 class CollectionScreen extends StatefulWidget {
-  const CollectionScreen({Key? key}) : super(key: key);
+  const CollectionScreen({super.key});
 
   @override
   State<CollectionScreen> createState() => _CollectionScreenState();
@@ -55,7 +54,7 @@ class _CollectionScreenState extends State<CollectionScreen>
 
 // クエスト図鑑タブ
 class QuestCollectionTab extends StatelessWidget {
-  const QuestCollectionTab({Key? key}) : super(key: key);
+  const QuestCollectionTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +288,7 @@ class QuestCollectionTab extends StatelessWidget {
 
 // 装備図鑑タブ
 class EquipmentCollectionTab extends StatelessWidget {
-  const EquipmentCollectionTab({Key? key}) : super(key: key);
+  const EquipmentCollectionTab({super.key});
 
   @override
   Widget build(BuildContext context) {

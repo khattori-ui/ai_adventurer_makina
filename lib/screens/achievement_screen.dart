@@ -5,7 +5,7 @@ import '../data/achievement_data.dart';
 import 'package:intl/intl.dart';
 
 class AchievementScreen extends StatelessWidget {
-  const AchievementScreen({Key? key}) : super(key: key);
+  const AchievementScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

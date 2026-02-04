@@ -7,11 +7,11 @@ class StoryScreen extends StatefulWidget {
   final bool canSkip;
 
   const StoryScreen({
-    Key? key,
+    super.key,
     required this.scenes,
     required this.onComplete,
     this.canSkip = true,
-  }) : super(key: key);
+  });
 
   @override
   State<StoryScreen> createState() => _StoryScreenState();
