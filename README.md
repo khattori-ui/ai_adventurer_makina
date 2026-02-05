@@ -89,3 +89,53 @@ Macアプリとしての起動が難しい場合、Google Chrome（ブラウザ�
 ```bash
 flutter run -d chrome
 ```
+
+---
+
+## 🏗 設計図 (Architecture)
+このアプリは「MVVM + Providerパターン」で作られています。
+
+```mermaid
+graph TD
+    %% スタイル定義
+    classDef view fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef viewmodel fill:#fff9c4,stroke:#fbc02d,stroke-width:2px;
+    classDef model fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef service fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+
+    subgraph "View (見た目)"
+        HS[Home Screen]:::view
+        QS[Quest List Screen]:::view
+        SS[Shop Screen]:::view
+        CS[Conversation Screen]:::view
+    end
+
+    subgraph "ViewModel (脳みそ)"
+        GP[GameProvider]:::viewmodel
+    end
+
+    subgraph "Model (データ定義)"
+        Makina[Makina Class]:::model
+        Item[Item Class]:::model
+        Quest[Quest Class]:::model
+    end
+
+    subgraph "Service & Data (機能・保存)"
+        AI[AI Service]:::service
+        Store[Storage Service]:::service
+        QData[Quest Data]:::service
+    end
+
+    %% 関係性
+    HS -->|操作・監視| GP
+    QS -->|操作・監視| GP
+    SS -->|操作・監視| GP
+    CS -->|操作・監視| GP
+
+    GP -->|状態変更| Makina
+    GP -->|アイテム操作| Item
+    GP -->|クエスト参照| Quest
+
+    GP -->|会話生成| AI
+    GP -->|セーブ・ロード| Store
+    GP -->|マスタデータ取得| QData
