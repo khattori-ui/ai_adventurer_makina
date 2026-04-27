@@ -1,11 +1,13 @@
 import 'dart:math';
 import 'item.dart';
 
+enum EquipmentSlot { weapon, armor, shield, bracelet, boots }
+
 // 1. 装備のデータ
 class Equipment {
   final String id;
   final String name;
-  final String slot;
+  final EquipmentSlot slot;
   final int attackBonus;
   final int magicBonus;
   final int speedBonus;
@@ -25,7 +27,7 @@ class Equipment {
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
-        'slot': slot,
+        'slot': slot.name,
         'attackBonus': attackBonus,
         'magicBonus': magicBonus,
         'speedBonus': speedBonus,
@@ -36,7 +38,7 @@ class Equipment {
   factory Equipment.fromJson(Map<String, dynamic> json) => Equipment(
       id: json['id'],
       name: json['name'],
-      slot: json['slot'],
+      slot: EquipmentSlot.values.byName(json['slot'] ?? 'weapon'),
       attackBonus: json['attackBonus'] ?? 0,
       magicBonus: json['magicBonus'] ?? 0,
       speedBonus: json['speedBonus'] ?? 0,
@@ -136,7 +138,7 @@ class Quest {
       s = 3.0;
     }
     double baseRate =
-        (s <= 1.0 ? s * 0.55 : 0.55 + (s - 1.0) * 0.25).clamp(0.05, 0.99);
+        (s <= 1.0 ? 0.05 + s * 0.60 : 0.65 + (s - 1.0) * 0.17).clamp(0.05, 0.99);
     if (isCleared && makina.reincarnationCount > 0) {
       double bonus = (makina.reincarnationCount * 0.05).clamp(0.0, 0.10);
       baseRate = (baseRate + bonus).clamp(0.05, 0.99);
@@ -215,6 +217,11 @@ class Makina {
   Map<String, dynamic> achievementData;
   int dailyConversationCount;
   String lastConversationDate;
+  int totalQuestSuccessCount;
+  int consecutiveSuccessCount;
+  int consecutiveFailCount;
+  int dailyQuestClearCount;
+  String lastQuestClearDate;
 
   Makina({
     this.uid = 'local_user',
@@ -249,6 +256,11 @@ class Makina {
     this.achievementData = const {},
     this.dailyConversationCount = 0,
     this.lastConversationDate = '',
+    this.totalQuestSuccessCount = 0,
+    this.consecutiveSuccessCount = 0,
+    this.consecutiveFailCount = 0,
+    this.dailyQuestClearCount = 0,
+    this.lastQuestClearDate = '',
   })  : inventory = inventory ?? [],
         recentMemories = recentMemories ?? [],
         activeBuffs = activeBuffs ?? [],
@@ -325,6 +337,14 @@ class Makina {
     defense = 10;
     intimacy = 50.0;
     guildRank = 0;
+    // 装備・インベントリリセット（ドロップ済み記録も消えるため再入手可能になる）
+    weapon = null;
+    armor = null;
+    shield = null;
+    bracelet = null;
+    boots = null;
+    inventory = [];
+    currentOutfitId = null;
   }
 
   void changeIntimacy(double delta) =>
@@ -352,43 +372,45 @@ class Makina {
 
   void equipItem(Equipment e) {
     Equipment? o;
-    if (e.slot == 'weapon') {
-      o = weapon;
-      weapon = e;
-    } else if (e.slot == 'armor') {
-      o = armor;
-      armor = e;
-    } else if (e.slot == 'shield') {
-      o = shield;
-      shield = e;
-    } else if (e.slot == 'bracelet') {
-      o = bracelet;
-      bracelet = e;
-    } else if (e.slot == 'boots') {
-      o = boots;
-      boots = e;
+    switch (e.slot) {
+      case EquipmentSlot.weapon:
+        o = weapon;
+        weapon = e;
+      case EquipmentSlot.armor:
+        o = armor;
+        armor = e;
+      case EquipmentSlot.shield:
+        o = shield;
+        shield = e;
+      case EquipmentSlot.bracelet:
+        o = bracelet;
+        bracelet = e;
+      case EquipmentSlot.boots:
+        o = boots;
+        boots = e;
     }
     if (o != null) inventory.add(o);
     inventory.removeWhere((i) => i.id == e.id);
   }
 
-  void unequipItem(String s) {
+  void unequipItem(EquipmentSlot s) {
     Equipment? e;
-    if (s == 'weapon') {
-      e = weapon;
-      weapon = null;
-    } else if (s == 'armor') {
-      e = armor;
-      armor = null;
-    } else if (s == 'shield') {
-      e = shield;
-      shield = null;
-    } else if (s == 'bracelet') {
-      e = bracelet;
-      bracelet = null;
-    } else if (s == 'boots') {
-      e = boots;
-      boots = null;
+    switch (s) {
+      case EquipmentSlot.weapon:
+        e = weapon;
+        weapon = null;
+      case EquipmentSlot.armor:
+        e = armor;
+        armor = null;
+      case EquipmentSlot.shield:
+        e = shield;
+        shield = null;
+      case EquipmentSlot.bracelet:
+        e = bracelet;
+        bracelet = null;
+      case EquipmentSlot.boots:
+        e = boots;
+        boots = null;
     }
     if (e != null) inventory.add(e);
   }
@@ -434,7 +456,12 @@ class Makina {
         'clearedQuestIds': clearedQuestIds,
         'achievementData': achievementData,
         'dailyConversationCount': dailyConversationCount,
-        'lastConversationDate': lastConversationDate
+        'lastConversationDate': lastConversationDate,
+        'totalQuestSuccessCount': totalQuestSuccessCount,
+        'consecutiveSuccessCount': consecutiveSuccessCount,
+        'consecutiveFailCount': consecutiveFailCount,
+        'dailyQuestClearCount': dailyQuestClearCount,
+        'lastQuestClearDate': lastQuestClearDate,
       };
   factory Makina.fromJson(Map<String, dynamic> json) => Makina(
       uid: json['uid'] ?? 'local_user',
@@ -491,5 +518,10 @@ class Makina {
           : [],
       achievementData: json['achievementData'] ?? {},
       dailyConversationCount: json['dailyConversationCount'] ?? 0,
-      lastConversationDate: json['lastConversationDate'] ?? '');
+      lastConversationDate: json['lastConversationDate'] ?? '',
+      totalQuestSuccessCount: json['totalQuestSuccessCount'] ?? 0,
+      consecutiveSuccessCount: json['consecutiveSuccessCount'] ?? 0,
+      consecutiveFailCount: json['consecutiveFailCount'] ?? 0,
+      dailyQuestClearCount: json['dailyQuestClearCount'] ?? 0,
+      lastQuestClearDate: json['lastQuestClearDate'] ?? '');
 }

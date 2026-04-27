@@ -169,8 +169,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isPlayer
-              ? Colors.deepPurple.withOpacity(0.9)
-              : Colors.white.withOpacity(0.9),
+              ? Colors.deepPurple.withValues(alpha: 0.9)
+              : Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
         ),
@@ -212,7 +212,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
             .map((text) => OutlinedButton(
                   onPressed: () => _sendMessage(text),
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.8),
+                    backgroundColor: Colors.white.withValues(alpha: 0.8),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20)),
                   ),

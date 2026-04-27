@@ -86,7 +86,7 @@ class _StoryScreenState extends State<StoryScreen>
                   child: Column(
                     children: [
                       const Spacer(flex: 1),
-                      
+
                       // キャラクター画像
                       if (scene.characterImage != null)
                         Expanded(
@@ -104,9 +104,9 @@ class _StoryScreenState extends State<StoryScreen>
                         )
                       else
                         const Spacer(flex: 4),
-                      
+
                       const Spacer(flex: 1),
-                      
+
                       // テキストボックス
                       FadeTransition(
                         opacity: _fadeAnimation,
@@ -114,10 +114,10 @@ class _StoryScreenState extends State<StoryScreen>
                           margin: const EdgeInsets.all(20),
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.8),
+                            color: Colors.black.withValues(alpha: 0.8),
                             borderRadius: BorderRadius.circular(15),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
+                              color: Colors.white.withValues(alpha: 0.3),
                               width: 2,
                             ),
                           ),
@@ -138,7 +138,7 @@ class _StoryScreenState extends State<StoryScreen>
                                     ),
                                   ),
                                 ),
-                              
+
                               // テキスト
                               Text(
                                 scene.text,
@@ -148,17 +148,18 @@ class _StoryScreenState extends State<StoryScreen>
                                   height: 1.5,
                                 ),
                               ),
-                              
+
                               const SizedBox(height: 10),
-                              
+
                               // 進行インジケーター
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     '${_currentSceneIndex + 1} / ${widget.scenes.length}',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.5),
+                                      color: Colors.white.withValues(alpha: 0.5),
                                       fontSize: 12,
                                     ),
                                   ),
@@ -171,7 +172,8 @@ class _StoryScreenState extends State<StoryScreen>
                                       ),
                                       const SizedBox(width: 5),
                                       Text(
-                                        _currentSceneIndex < widget.scenes.length - 1
+                                        _currentSceneIndex <
+                                                widget.scenes.length - 1
                                             ? 'タップして次へ'
                                             : 'タップして終了',
                                         style: const TextStyle(
@@ -190,7 +192,7 @@ class _StoryScreenState extends State<StoryScreen>
                     ],
                   ),
                 ),
-                
+
                 // スキップボタン
                 if (widget.canSkip)
                   Positioned(
@@ -199,7 +201,7 @@ class _StoryScreenState extends State<StoryScreen>
                     child: TextButton(
                       onPressed: _skipStory,
                       style: TextButton.styleFrom(
-                        backgroundColor: Colors.black.withOpacity(0.5),
+                        backgroundColor: Colors.black.withValues(alpha: 0.5),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 10,
