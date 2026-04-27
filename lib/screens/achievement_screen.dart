@@ -77,7 +77,7 @@ class AchievementScreen extends StatelessWidget {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: _getRarityColor(achievement.rarity).withOpacity(0.2),
+            color: _getRarityColor(achievement.rarity).withValues(alpha: 0.2),
             shape: BoxShape.circle,
             border: Border.all(
               color: _getRarityColor(achievement.rarity),
@@ -159,7 +159,7 @@ class AchievementScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color),
       ),

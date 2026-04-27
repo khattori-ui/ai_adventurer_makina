@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 認証用
 import '../models/makina.dart';
 import '../models/item.dart';
-import '../services/storage_service.dart';
+import '../services/storage_service.dart'; // ローカル保存
+import '../services/firestore_service.dart'; // クラウド保存 (New!)
 import '../services/ai_service.dart';
 import '../data/quest_data.dart';
 import '../data/achievement_data.dart';
@@ -54,20 +54,30 @@ class GameProvider extends ChangeNotifier {
   int get remainingConversations =>
       maxDailyConversations - _makina.dailyConversationCount;
 
+  // -------------------------------------------------------
+  // TODO(test): テスト用の固定時間。本番前に false に戻すこと。
+  static const bool _useTestQuestDuration = true;
+  static const Duration _testQuestDuration = Duration(milliseconds: 500);
+  // -------------------------------------------------------
+
   Duration? get remainingTime {
     if (_makina.currentQuest == null || _makina.questStartTime == null) {
       return null;
     }
-    // ★ ここを10秒から3秒に戻しました
-    final baseDuration = const Duration(seconds: 3);
+    final baseDuration = _useTestQuestDuration
+        ? _testQuestDuration
+        : Duration(minutes: _makina.currentQuest!.durationMinutes);
     double reduction = 1.0;
     for (var buff in _makina.activeBuffs) {
       if (!buff.isExpired && buff.timeReductionRate > 0) {
         reduction = min(reduction, 1.0 - buff.timeReductionRate);
       }
     }
-    final actualDuration =
-        Duration(seconds: (baseDuration.inSeconds * reduction).toInt());
+    final actualDuration = _useTestQuestDuration
+        ? baseDuration
+        : Duration(
+            seconds: (baseDuration.inSeconds * reduction).toInt(),
+          );
     final endTime = _makina.questStartTime!.add(actualDuration);
     final remaining = endTime.difference(DateTime.now());
     return remaining.isNegative ? Duration.zero : remaining;
@@ -77,19 +87,39 @@ class GameProvider extends ChangeNotifier {
     _initialize();
   }
 
+  // ■■■ 初期化ロジックの修正 ■■■
   Future<void> _initialize() async {
     _isLoading = true;
     notifyListeners();
     _loadAchievementsFromMakina();
 
     try {
-      final savedMakina = await StorageService.loadMakina();
-      if (savedMakina != null) {
-        _makina = savedMakina;
-        _loadAchievementsFromMakina();
-        if (_makina.currentQuest != null && _makina.questStartTime != null) {
-          _startQuestTimer();
+      // 1. まずローカルデータをロード（表示を早くするため）
+      final localMakina = await StorageService.loadMakina();
+      if (localMakina != null) {
+        _makina = localMakina;
+      }
+
+      // 2. ログイン中なら、Firestoreから最新データを取得して同期
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final cloudMakina = await FirestoreService.getUserData(user.uid);
+        if (cloudMakina != null) {
+          // クラウドデータがあれば、それを正として上書き採用する
+          _makina = cloudMakina;
+          if (kDebugMode) print("☁️ クラウドデータをロードしました: ${_makina.level}");
+        } else {
+          // クラウドにデータがない（初回ログイン時など）は、今のデータをクラウドに登録
+          _makina.uid = user.uid;
+          await FirestoreService.saveUserData(_makina);
+          if (kDebugMode) print("☁️ 新規データをクラウドに作成しました");
         }
+      }
+
+      // 3. データロード後のセットアップ
+      _loadAchievementsFromMakina();
+      if (_makina.currentQuest != null && _makina.questStartTime != null) {
+        _startQuestTimer();
       }
     } catch (e) {
       debugPrint("初期化エラー: $e");
@@ -99,12 +129,31 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  // ■■■ セーブロジックの修正 ■■■
+  Future<void> _saveMakina() async {
+    _updateAchievementDataInMakina();
+
+    // 1. ローカルに保存
+    await StorageService.saveMakina(_makina);
+
+    // 2. ログイン中ならFirestoreにも保存（バックアップ）
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // UIDが未設定なら設定しておく
+      if (_makina.uid == 'local_user') {
+        _makina.uid = user.uid;
+      }
+      // バックグラウンドで保存（awaitしないことでアプリの動作を止めない手もあるが、今回は安全のためawait）
+      await FirestoreService.saveUserData(_makina);
+    }
+  }
+
   Future<void> reincarnate() async {
-    if (_makina.level < 30) return; // 1. レベル30以上かチェック
-    _makina.reincarnate(); // 2. マキナ本体のステータスをリセット
-    await _saveMakina(); // 3. データを保存（Firestore/ローカル）
-    _currentMessage = "師匠、転生完了だよ！"; // 4. メッセージを更新
-    notifyListeners(); // 5. 画面に反映
+    if (_makina.level < 30) return;
+    _makina.reincarnate();
+    await _saveMakina();
+    _currentMessage = "師匠、転生完了だよ！";
+    notifyListeners();
   }
 
   Future<void> useItem(ShopItem item) async {
@@ -188,7 +237,19 @@ class GameProvider extends ChangeNotifier {
       _makina.currentQuest = null;
       _makina.questStartTime = null;
 
+      // 連続成功/失敗カウンター更新
       if (success) {
+        _makina.totalQuestSuccessCount++;
+        _makina.consecutiveSuccessCount++;
+        _makina.consecutiveFailCount = 0;
+
+        final today = DateTime.now().toIso8601String().substring(0, 10);
+        if (_makina.lastQuestClearDate != today) {
+          _makina.dailyQuestClearCount = 0;
+          _makina.lastQuestClearDate = today;
+        }
+        _makina.dailyQuestClearCount++;
+
         if (quest.requiredGuildRank == _makina.guildRank) {
           _makina.recordQuestSuccess();
           if (_makina.tryRankUp(
@@ -199,11 +260,13 @@ class GameProvider extends ChangeNotifier {
         if (!_makina.clearedQuestIds.contains(quest.id)) {
           _makina.clearedQuestIds.add(quest.id);
         }
+      } else {
+        _makina.consecutiveFailCount++;
+        _makina.consecutiveSuccessCount = 0;
       }
 
       await _checkAchievements(quest, success, successRate);
 
-      // ★ 画面に結果を表示するために結果をセットします
       _questResult = QuestResult(
           isSuccess: success,
           questName: quest.name,
@@ -255,11 +318,6 @@ class GameProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
-  }
-
-  Future<void> _saveMakina() async {
-    _updateAchievementDataInMakina();
-    await StorageService.saveMakina(_makina);
   }
 
   Future<void> markPrologueSeen() async {
@@ -327,7 +385,7 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void unequipItem(String s) {
+  void unequipItem(EquipmentSlot s) {
     _makina.unequipItem(s);
     _saveMakina();
     notifyListeners();
@@ -337,8 +395,18 @@ class GameProvider extends ChangeNotifier {
       .where((q) => q.requiredGuildRank <= _makina.guildRank)
       .toList();
 
+  // ■■■ リセットロジックの修正 ■■■
   Future<void> resetGame() async {
+    // 1. ローカル削除
     await StorageService.resetMakina();
+
+    // 2. クラウド削除（ログイン中なら）
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirestoreService.deleteUserData(user.uid);
+    }
+
+    // 3. メモリ上のデータもリセット
     _makina = Makina();
     _currentMessage = null;
     _questResult = null;
@@ -346,9 +414,77 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _checkAchievements(Quest q, bool s, double rate) async {
-    if (s) await _unlockAchievement('first_quest');
-    if (_makina.level >= 5) await _unlockAchievement('level_5');
+  Future<void> _checkAchievements(Quest quest, bool success, double rate) async {
+    // ── クエスト成功系 ──────────────────────────────
+    if (success) {
+      await _unlockAchievement('first_quest');
+
+      if (_makina.totalQuestSuccessCount >= 10)  await _unlockAchievement('quest_10');
+      if (_makina.totalQuestSuccessCount >= 50)  await _unlockAchievement('quest_50');
+      if (_makina.totalQuestSuccessCount >= 100) await _unlockAchievement('quest_100');
+
+      // 特定クエスト
+      if (quest.id == 'quest_020') await _unlockAchievement('maou_clear');
+      if (quest.id == 'quest_021') await _unlockAchievement('true_maou_clear');
+      if (quest.id == 'quest_039') await _unlockAchievement('god_slayer');
+
+      // 奇跡（成功率5%以下で成功）
+      if (rate <= 0.05) await _unlockAchievement('impossible_success');
+
+      // 全クエストクリア
+      const int totalQuestCount = 40;
+      if (_makina.clearedQuestIds.length >= totalQuestCount) {
+        await _unlockAchievement('all_quest_clear');
+      }
+    }
+
+    // ── 失敗系 ──────────────────────────────────────
+    if (!success) {
+      // 高レベルで薬草採取に失敗
+      if (_makina.level >= 20 && quest.id == 'quest_001') {
+        await _unlockAchievement('high_level_herb_fail');
+      }
+    }
+
+    // ── 連続記録 ─────────────────────────────────────
+    if (_makina.consecutiveSuccessCount >= 10) await _unlockAchievement('ten_success_streak');
+    if (_makina.consecutiveFailCount >= 10)    await _unlockAchievement('ten_fail_streak');
+
+    // ── スピードランナー ──────────────────────────────
+    if (_makina.dailyQuestClearCount >= 10) await _unlockAchievement('speed_runner');
+
+    // ── レベル系 ──────────────────────────────────────
+    if (_makina.level >= 5)  await _unlockAchievement('level_5');
+    if (_makina.level >= 10) await _unlockAchievement('level_10');
+    if (_makina.level >= 20) await _unlockAchievement('level_20');
+    if (_makina.level >= 30) await _unlockAchievement('level_30');
+
+    // ── 装備系 ────────────────────────────────────────
+    if (_droppedEquipment != null) {
+      await _unlockAchievement('first_equipment');
+      if (_droppedEquipment!.rarity >= 3) await _unlockAchievement('legendary_equipment');
+    }
+    // インベントリ含め激レア装備を既に持っている場合も判定
+    final allEquip = [
+      _makina.weapon, _makina.armor, _makina.shield,
+      _makina.bracelet, _makina.boots,
+      ..._makina.inventory,
+    ].whereType<Equipment>();
+    if (allEquip.any((e) => e.rarity >= 3)) await _unlockAchievement('legendary_equipment');
+    if (allEquip.isNotEmpty) await _unlockAchievement('first_equipment');
+
+    // 全スロット装備
+    if (_makina.weapon != null &&
+        _makina.armor != null &&
+        _makina.shield != null &&
+        _makina.bracelet != null &&
+        _makina.boots != null) {
+      await _unlockAchievement('full_equipment');
+    }
+
+    // ── 親密度系 ──────────────────────────────────────
+    if (_makina.intimacy >= 80)  await _unlockAchievement('intimacy_80');
+    if (_makina.intimacy >= 100) await _unlockAchievement('intimacy_100');
   }
 
   @override
