@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>AI冒険者マキナ 仕様書</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="/dev/stdin" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">AI冒険者マキナ 仕様書</h1>
+</header>
+<h1 id="ai冒険者マキナ-仕様書">AI冒険者マキナ 仕様書</h1>
+<blockquote>
+<p>最終更新: 2026-04-27</p>
+</blockquote>
+<hr />
+<h2 id="ゲーム概要">1. ゲーム概要</h2>
+<p>マキナはAIで動く冒険者。プレイヤーは「師匠」として彼女を育て、クエストに送り出す放置系RPG。</p>
+<table>
+<thead>
+<tr>
+<th>要素</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>会話上限</td>
+<td>1日50回</td>
+</tr>
+<tr>
+<td>クエスト</td>
+<td>時間経過で完了（テスト中は0.5秒固定）</td>
+</tr>
+<tr>
+<td>セーブ</td>
+<td>ローカル（SharedPreferences）＋Firebase（ログイン時）</td>
+</tr>
+<tr>
+<td>AIエンジン</td>
+<td>Claude 3.5 Sonnet</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ステータス成長">2. ステータス成長</h2>
+<h3 id="初期値">初期値</h3>
+<table>
+<thead>
+<tr>
+<th>ステータス</th>
+<th>初期値</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>攻撃</td>
+<td>10</td>
+</tr>
+<tr>
+<td>魔法</td>
+<td>10</td>
+</tr>
+<tr>
+<td>速さ</td>
+<td>10</td>
+</tr>
+<tr>
+<td>賢さ</td>
+<td>10</td>
+</tr>
+<tr>
+<td>防御</td>
+<td>10</td>
+</tr>
+<tr>
+<td>親密度</td>
+<td>50</td>
+</tr>
+</tbody>
+</table>
+<h3 id="レベルアップ計算">レベルアップ計算</h3>
+<ul>
+<li>次レベル必要経験値: <code>100 × レベル^2.9</code></li>
+<li>レベルアップ時ステータス増加: <code>b = 5 + (転生回数 × 2)</code>
+<ul>
+<li>攻撃・魔法: <code>+b</code></li>
+<li>速さ・賢さ・防御: <code>+b-2</code></li>
+</ul></li>
+<li>転生条件: レベル30以上</li>
+<li><strong>転生時リセット対象</strong>:
+レベル・EXP・ステータス・親密度・ギルドランク・装備・インベントリ・コスチューム</li>
+<li><strong>転生時引き継ぎ</strong>:
+転生回数・会話記憶・クリア済みクエストID・パーソナリティ(brave/dependent)・実績</li>
+<li>装備リセットによりドロップ済み装備も再入手可能になる</li>
+</ul>
+<hr />
+<h2 id="ギルドランクシステム">3. ギルドランクシステム</h2>
+<table>
+<thead>
+<tr>
+<th>ランク</th>
+<th>名称</th>
+<th>ランクアップ必要成功数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rank F</td>
+<td>ランクF</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Rank E</td>
+<td>ランクE</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Rank D</td>
+<td>ランクD</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Rank C</td>
+<td>ランクC</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Rank B</td>
+<td>ランクB</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Rank A</td>
+<td>ランクA</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Rank S</td>
+<td>ランクS</td>
+<td>最大</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>現在のランクと同じ <code>requiredGuildRank</code>
+のクエスト成功のみカウント対象</p>
+</blockquote>
+<hr />
+<h2 id="クエスト成功率計算式">4. クエスト成功率計算式</h2>
+<p>各ステータスの「自分の実効値 ÷ 目標値」を目標値で加重平均し、スコア
+<code>s</code> を算出。</p>
+<pre><code>s = Σ(実効ステータス / 目標ステータス × 目標ステータス) / Σ(目標ステータス)
+  ※ s は 0.0〜3.0 でクランプ
+
+成功率 = s &lt;= 1.0 ? 0.05 + s × 0.60
+       : 0.65 + (s - 1.0) × 0.17
+  ※ 最低5%、最大99%</code></pre>
+<table>
+<thead>
+<tr>
+<th>スコア s</th>
+<th>成功率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0.0（全くダメ）</td>
+<td>5%（最低保証）</td>
+</tr>
+<tr>
+<td>0.5</td>
+<td>35%</td>
+</tr>
+<tr>
+<td><strong>1.0（ちょうど同じ）</strong></td>
+<td><strong>65%</strong></td>
+</tr>
+<tr>
+<td>1.5</td>
+<td>73.5%</td>
+</tr>
+<tr>
+<td>2.0</td>
+<td>82%</td>
+</tr>
+<tr>
+<td>3.0</td>
+<td>99%（上限）</td>
+</tr>
+</tbody>
+</table>
+<p>転生ボーナス: クリア済みクエストに
+<code>転生回数 × 5%</code>（最大+10%）加算</p>
+<hr />
+<h2 id="クエスト一覧">5. クエスト一覧</h2>
+<p>ドロップ率: 一律30%（ザ・デベロッパーのみ100%確定）</p>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>クエスト名</th>
+<th>必要Rank</th>
+<th>時間</th>
+<th>難易度</th>
+<th>攻撃目標</th>
+<th>魔法目標</th>
+<th>速さ目標</th>
+<th>賢さ目標</th>
+<th>防御目標</th>
+<th>成功EXP</th>
+<th>失敗EXP</th>
+<th>ドロップ候補</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+<h3
+id="第1章冒険の始まりと神域の門rank-fs">第1章：冒険の始まりと神域の門（Rank
+F〜S）</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>クエスト名</th>
+<th>必要Rank</th>
+<th>時間</th>
+<th>難易度</th>
+<th>攻撃目標</th>
+<th>魔法目標</th>
+<th>速さ目標</th>
+<th>賢さ目標</th>
+<th>防御目標</th>
+<th>成功EXP</th>
+<th>失敗EXP</th>
+<th>ドロップ候補</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>quest_001</td>
+<td>薬草採取</td>
+<td>RF</td>
+<td>5m</td>
+<td>1</td>
+<td>10</td>
+<td>0</td>
+<td>12</td>
+<td>5</td>
+<td>5</td>
+<td>100</td>
+<td>20</td>
+<td>iron_sword, leather_armor</td>
+</tr>
+<tr>
+<td>quest_002</td>
+<td>きのこ狩り</td>
+<td>RF</td>
+<td>5m</td>
+<td>1</td>
+<td>0</td>
+<td>0</td>
+<td>15</td>
+<td>10</td>
+<td>5</td>
+<td>100</td>
+<td>20</td>
+<td>leather_boots, magic_bracelet</td>
+</tr>
+<tr>
+<td>quest_003</td>
+<td>荷物運び</td>
+<td>RF</td>
+<td>15m</td>
+<td>1</td>
+<td>5</td>
+<td>0</td>
+<td>10</td>
+<td>8</td>
+<td>12</td>
+<td>300</td>
+<td>50</td>
+<td>iron_sword, leather_armor, leather_boots</td>
+</tr>
+<tr>
+<td>quest_004</td>
+<td>スライム退治</td>
+<td>RE</td>
+<td>30m</td>
+<td>3</td>
+<td>30</td>
+<td>20</td>
+<td>25</td>
+<td>15</td>
+<td>25</td>
+<td>1,000</td>
+<td>200</td>
+<td>steel_sword, magic_staff, leather_boots</td>
+</tr>
+<tr>
+<td>quest_005</td>
+<td>迷子の子供探し</td>
+<td>RE</td>
+<td>45m</td>
+<td>3</td>
+<td>20</td>
+<td>15</td>
+<td>40</td>
+<td>30</td>
+<td>20</td>
+<td>1,500</td>
+<td>300</td>
+<td>magic_bracelet, speed_boots</td>
+</tr>
+<tr>
+<td>quest_006</td>
+<td>オオカミの群れ退治</td>
+<td>RE</td>
+<td>1h</td>
+<td>3</td>
+<td>40</td>
+<td>0</td>
+<td>30</td>
+<td>20</td>
+<td>35</td>
+<td>2,000</td>
+<td>400</td>
+<td>steel_sword, chain_armor</td>
+</tr>
+<tr>
+<td>quest_007</td>
+<td>盗賊団の追跡</td>
+<td>RD</td>
+<td>2h</td>
+<td>4</td>
+<td>55</td>
+<td>25</td>
+<td>55</td>
+<td>35</td>
+<td>50</td>
+<td>4,500</td>
+<td>900</td>
+<td>steel_sword, chain_armor, speed_boots</td>
+</tr>
+<tr>
+<td>quest_008</td>
+<td>地下水路の調査</td>
+<td>RD</td>
+<td>2h30m</td>
+<td>4</td>
+<td>40</td>
+<td>50</td>
+<td>35</td>
+<td>55</td>
+<td>35</td>
+<td>5,500</td>
+<td>1,100</td>
+<td>magic_staff, wisdom_bracelet</td>
+</tr>
+<tr>
+<td>quest_009</td>
+<td>ゴブリンの巣退治</td>
+<td>RD</td>
+<td>3h</td>
+<td>4</td>
+<td>65</td>
+<td>35</td>
+<td>50</td>
+<td>40</td>
+<td>55</td>
+<td>7,000</td>
+<td>1,400</td>
+<td>mithril_sword, iron_shield, chain_armor</td>
+</tr>
+<tr>
+<td>quest_010</td>
+<td>呪われた館の調査</td>
+<td>RC</td>
+<td>4h</td>
+<td>5</td>
+<td>50</td>
+<td>80</td>
+<td>55</td>
+<td>70</td>
+<td>50</td>
+<td>12,000</td>
+<td>2,400</td>
+<td>magic_staff, ancient_staff, wisdom_bracelet</td>
+</tr>
+<tr>
+<td>quest_011</td>
+<td>古代遺跡の調査</td>
+<td>RC</td>
+<td>4h30m</td>
+<td>5</td>
+<td>60</td>
+<td>80</td>
+<td>60</td>
+<td>90</td>
+<td>65</td>
+<td>14,000</td>
+<td>2,800</td>
+<td>ancient_staff, wisdom_bracelet, scholar_boots</td>
+</tr>
+<tr>
+<td>quest_012</td>
+<td>トロール討伐</td>
+<td>RC</td>
+<td>5h</td>
+<td>5</td>
+<td>100</td>
+<td>30</td>
+<td>45</td>
+<td>25</td>
+<td>90</td>
+<td>16,000</td>
+<td>3,200</td>
+<td>mithril_sword, iron_shield, chain_armor</td>
+</tr>
+<tr>
+<td>quest_013</td>
+<td>ワイバーン討伐</td>
+<td>RB</td>
+<td>6h</td>
+<td>6</td>
+<td>110</td>
+<td>70</td>
+<td>110</td>
+<td>60</td>
+<td>95</td>
+<td>25,000</td>
+<td>5,000</td>
+<td>mithril_sword, chain_armor, iron_shield, speed_boots</td>
+</tr>
+<tr>
+<td>quest_014</td>
+<td>魔法使いの塔</td>
+<td>RB</td>
+<td>7h</td>
+<td>6</td>
+<td>70</td>
+<td>130</td>
+<td>80</td>
+<td>120</td>
+<td>80</td>
+<td>30,000</td>
+<td>6,000</td>
+<td>ancient_staff, wisdom_bracelet, scholar_boots</td>
+</tr>
+<tr>
+<td>quest_015</td>
+<td>ドラゴン討伐</td>
+<td>RB</td>
+<td>8h</td>
+<td>7</td>
+<td>140</td>
+<td>100</td>
+<td>90</td>
+<td>80</td>
+<td>130</td>
+<td>40,000</td>
+<td>8,000</td>
+<td>dragon_slayer, dragon_scale_armor, flame_shield</td>
+</tr>
+<tr>
+<td>quest_016</td>
+<td>魔獣の森制圧</td>
+<td>RA</td>
+<td>9h</td>
+<td>8</td>
+<td>160</td>
+<td>120</td>
+<td>140</td>
+<td>100</td>
+<td>150</td>
+<td>55,000</td>
+<td>11,000</td>
+<td>dragon_slayer, dragon_scale_armor, flame_shield, shadow_boots</td>
+</tr>
+<tr>
+<td>quest_017</td>
+<td>闇の教団壊滅</td>
+<td>RA</td>
+<td>9h30m</td>
+<td>8</td>
+<td>170</td>
+<td>170</td>
+<td>150</td>
+<td>160</td>
+<td>160</td>
+<td>65,000</td>
+<td>13,000</td>
+<td>demon_blade, dark_armor, cursed_shield</td>
+</tr>
+<tr>
+<td>quest_018</td>
+<td>魔王軍の幹部撃破</td>
+<td>RA</td>
+<td>10h</td>
+<td>9</td>
+<td>200</td>
+<td>180</td>
+<td>170</td>
+<td>170</td>
+<td>190</td>
+<td>80,000</td>
+<td>16,000</td>
+<td>demon_blade, dark_armor, cursed_shield, shadow_boots</td>
+</tr>
+<tr>
+<td>quest_019</td>
+<td>古代竜討伐</td>
+<td>RS</td>
+<td>11h</td>
+<td>10</td>
+<td>250</td>
+<td>250</td>
+<td>220</td>
+<td>220</td>
+<td>250</td>
+<td>120,000</td>
+<td>24,000</td>
+<td>legendary_sword, divine_armor, holy_shield, god_bracelet</td>
+</tr>
+<tr>
+<td>quest_020</td>
+<td>魔王討伐</td>
+<td>RS</td>
+<td>12h</td>
+<td>12</td>
+<td>300</td>
+<td>300</td>
+<td>280</td>
+<td>280</td>
+<td>300</td>
+<td>200,000</td>
+<td>40,000</td>
+<td>legendary_sword, divine_armor, holy_shield, god_bracelet,
+angel_boots</td>
+</tr>
+<tr>
+<td>quest_021</td>
+<td>真・魔王討伐</td>
+<td>RS</td>
+<td>12h</td>
+<td>20</td>
+<td>500</td>
+<td>500</td>
+<td>450</td>
+<td>450</td>
+<td>500</td>
+<td>500,000</td>
+<td>100,000</td>
+<td>true_demon_blade, abyssal_armor, true_holy_shield,
+void_walker_boots, chaos_staff, demon_king_bracelet</td>
+</tr>
+<tr>
+<td>quest_022</td>
+<td>神域の門番</td>
+<td>RS</td>
+<td>12h</td>
+<td>20</td>
+<td>777</td>
+<td>777</td>
+<td>777</td>
+<td>777</td>
+<td>777</td>
+<td>600,000</td>
+<td>120,000</td>
+<td>sanctuary_blade, sanctuary_shield</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第2章神話崩壊rank-s-転生推奨">第2章：神話崩壊（Rank S /
+転生推奨）</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>クエスト名</th>
+<th>必要Rank</th>
+<th>時間</th>
+<th>難易度</th>
+<th>攻撃目標</th>
+<th>魔法目標</th>
+<th>速さ目標</th>
+<th>賢さ目標</th>
+<th>防御目標</th>
+<th>成功EXP</th>
+<th>失敗EXP</th>
+<th>ドロップ候補</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>quest_023</td>
+<td>塵芥神（じんかいしん）</td>
+<td>RS</td>
+<td>1h</td>
+<td>30</td>
+<td>1000</td>
+<td>1000</td>
+<td>1000</td>
+<td>1000</td>
+<td>1000</td>
+<td>1,000,000</td>
+<td>200,000</td>
+<td>dust_broom</td>
+</tr>
+<tr>
+<td>quest_024</td>
+<td>泡沫神（ほうまつしん）</td>
+<td>RS</td>
+<td>2h</td>
+<td>32</td>
+<td>1500</td>
+<td>1500</td>
+<td>1500</td>
+<td>1500</td>
+<td>1500</td>
+<td>1,200,000</td>
+<td>240,000</td>
+<td>bubble_wand</td>
+</tr>
+<tr>
+<td>quest_025</td>
+<td>転寝神（うたたねしん）</td>
+<td>RS</td>
+<td>3h</td>
+<td>35</td>
+<td>2000</td>
+<td>2000</td>
+<td>2000</td>
+<td>2000</td>
+<td>2000</td>
+<td>1,500,000</td>
+<td>300,000</td>
+<td>dream_armor</td>
+</tr>
+<tr>
+<td>quest_026</td>
+<td>平平凡神（へいへいぼんしん）</td>
+<td>RS</td>
+<td>4h</td>
+<td>38</td>
+<td>2800</td>
+<td>2800</td>
+<td>2800</td>
+<td>2800</td>
+<td>2800</td>
+<td>2,000,000</td>
+<td>400,000</td>
+<td>ordinary_medal</td>
+</tr>
+<tr>
+<td>quest_027</td>
+<td>剛腕神（ごうわんしん）</td>
+<td>RS</td>
+<td>5h</td>
+<td>40</td>
+<td>3800</td>
+<td>3800</td>
+<td>3800</td>
+<td>3800</td>
+<td>3800</td>
+<td>2,500,000</td>
+<td>500,000</td>
+<td>titan_axe</td>
+</tr>
+<tr>
+<td>quest_028</td>
+<td>烈火神（れっかしん）</td>
+<td>RS</td>
+<td>6h</td>
+<td>45</td>
+<td>5000</td>
+<td>5000</td>
+<td>5000</td>
+<td>5000</td>
+<td>5000</td>
+<td>3,000,000</td>
+<td>600,000</td>
+<td>blaze_sword</td>
+</tr>
+<tr>
+<td>quest_029</td>
+<td>鉄壁神（てっぺきしん）</td>
+<td>RS</td>
+<td>7h</td>
+<td>50</td>
+<td>6500</td>
+<td>6500</td>
+<td>6500</td>
+<td>6500</td>
+<td>6500</td>
+<td>4,000,000</td>
+<td>800,000</td>
+<td>infinity_wall</td>
+</tr>
+<tr>
+<td>quest_030</td>
+<td>疾風神（しっぷうしん）</td>
+<td>RS</td>
+<td>8h</td>
+<td>55</td>
+<td>8500</td>
+<td>8500</td>
+<td>8500</td>
+<td>8500</td>
+<td>8500</td>
+<td>5,000,000</td>
+<td>1,000,000</td>
+<td>sky_step</td>
+</tr>
+<tr>
+<td>quest_031</td>
+<td>破壊神（はかいしん）</td>
+<td>RS</td>
+<td>10h</td>
+<td>60</td>
+<td>11000</td>
+<td>11000</td>
+<td>11000</td>
+<td>11000</td>
+<td>11000</td>
+<td>8,000,000</td>
+<td>1,600,000</td>
+<td>destruction_star</td>
+</tr>
+<tr>
+<td>quest_032</td>
+<td>魔神王（まじんおう）</td>
+<td>RS</td>
+<td>12h</td>
+<td>70</td>
+<td>15000</td>
+<td>15000</td>
+<td>15000</td>
+<td>15000</td>
+<td>15000</td>
+<td>15,000,000</td>
+<td>3,000,000</td>
+<td>majesty_cape</td>
+</tr>
+</tbody>
+</table>
+<h3 id="第3章rank-s-高難度">第3章（Rank S / 高難度）</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+</colgroup>
+<thead>
+<tr>
+<th>ID</th>
+<th>クエスト名</th>
+<th>必要Rank</th>
+<th>時間</th>
+<th>難易度</th>
+<th>攻撃目標</th>
+<th>魔法目標</th>
+<th>速さ目標</th>
+<th>賢さ目標</th>
+<th>防御目標</th>
+<th>成功EXP</th>
+<th>失敗EXP</th>
+<th>ドロップ候補</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>quest_033</td>
+<td>殺戮神（さつりくしん）</td>
+<td>RS</td>
+<td>24h</td>
+<td>80</td>
+<td>20000</td>
+<td>20000</td>
+<td>20000</td>
+<td>20000</td>
+<td>20000</td>
+<td>25,000,000</td>
+<td>5,000,000</td>
+<td>genesis_blade</td>
+</tr>
+<tr>
+<td>quest_034</td>
+<td>覇道神（はどうしん）</td>
+<td>RS</td>
+<td>24h</td>
+<td>85</td>
+<td>30000</td>
+<td>30000</td>
+<td>30000</td>
+<td>30000</td>
+<td>30000</td>
+<td>35,000,000</td>
+<td>7,000,000</td>
+<td>creation_armor</td>
+</tr>
+<tr>
+<td>quest_035</td>
+<td>断罪神（だんざいしん）</td>
+<td>RS</td>
+<td>24h</td>
+<td>90</td>
+<td>45000</td>
+<td>45000</td>
+<td>45000</td>
+<td>45000</td>
+<td>45000</td>
+<td>50,000,000</td>
+<td>10,000,000</td>
+<td>universe_shield</td>
+</tr>
+<tr>
+<td>quest_036</td>
+<td>虚無神（きょむしん）</td>
+<td>RS</td>
+<td>24h</td>
+<td>95</td>
+<td>60000</td>
+<td>60000</td>
+<td>60000</td>
+<td>60000</td>
+<td>60000</td>
+<td>80,000,000</td>
+<td>16,000,000</td>
+<td>void_walker_boots</td>
+</tr>
+<tr>
+<td>quest_037</td>
+<td>因果神（いんがしん）</td>
+<td>RS</td>
+<td>24h</td>
+<td>98</td>
+<td>80000</td>
+<td>80000</td>
+<td>80000</td>
+<td>80000</td>
+<td>80000</td>
+<td>100,000,000</td>
+<td>20,000,000</td>
+<td>omniscient_bracelet</td>
+</tr>
+<tr>
+<td>quest_038</td>
+<td>無窮神（むきゅうしん）</td>
+<td>RS</td>
+<td>24h</td>
+<td>99</td>
+<td>100000</td>
+<td>100000</td>
+<td>100000</td>
+<td>100000</td>
+<td>100000</td>
+<td>150,000,000</td>
+<td>30,000,000</td>
+<td>dimensional_boots</td>
+</tr>
+<tr>
+<td>quest_039</td>
+<td>創世神（そうせいしん）</td>
+<td>RS</td>
+<td>24h</td>
+<td>99</td>
+<td>150000</td>
+<td>150000</td>
+<td>150000</td>
+<td>150000</td>
+<td>150000</td>
+<td>500,000,000</td>
+<td>100,000,000</td>
+<td>primordial_staff</td>
+</tr>
+<tr>
+<td>quest_040</td>
+<td>ザ・デベロッパー</td>
+<td>RS</td>
+<td>24h</td>
+<td>100</td>
+<td>999999</td>
+<td>999999</td>
+<td>999999</td>
+<td>999999</td>
+<td>999999</td>
+<td>999,999,999</td>
+<td>0</td>
+<td>admin_pass</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="装備一覧">6. 装備一覧</h2>
+<h3 id="武器">⚔️ 武器</h3>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>名前</th>
+<th>レア</th>
+<th>攻撃</th>
+<th>魔法</th>
+<th>速さ</th>
+<th>賢さ</th>
+<th>防御</th>
+<th>入手元（主要クエスト）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>鉄の剣</td>
+<td>★</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>薬草採取, 荷物運び</td>
+</tr>
+<tr>
+<td>鋼の剣</td>
+<td>★</td>
+<td>10</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>スライム退治, オオカミの群れ退治…</td>
+</tr>
+<tr>
+<td>魔法の杖</td>
+<td>★</td>
+<td>0</td>
+<td>15</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>スライム退治, 地下水路の調査…</td>
+</tr>
+<tr>
+<td>ミスリルソード</td>
+<td>★★</td>
+<td>20</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>ゴブリンの巣退治, トロール討伐…</td>
+</tr>
+<tr>
+<td>古代の杖</td>
+<td>★★</td>
+<td>0</td>
+<td>30</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>呪われた館の調査, 古代遺跡の調査…</td>
+</tr>
+<tr>
+<td>ドラゴンスレイヤー</td>
+<td>★★★</td>
+<td>35</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>ドラゴン討伐, 魔獣の森制圧</td>
+</tr>
+<tr>
+<td>魔剣</td>
+<td>★★★</td>
+<td>40</td>
+<td>20</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>闇の教団壊滅, 魔王軍の幹部撃破</td>
+</tr>
+<tr>
+<td>伝説の剣</td>
+<td>★★★</td>
+<td>50</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>古代竜討伐, 魔王討伐</td>
+</tr>
+<tr>
+<td>真・魔剣</td>
+<td>★★★</td>
+<td>80</td>
+<td>60</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>真・魔王討伐</td>
+</tr>
+<tr>
+<td>混沌の杖</td>
+<td>★★★</td>
+<td>0</td>
+<td>100</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>真・魔王討伐</td>
+</tr>
+<tr>
+<td>神域の聖剣</td>
+<td>★★★</td>
+<td>250</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>神域の門番</td>
+</tr>
+<tr>
+<td>塵芥の神箒</td>
+<td>★★★</td>
+<td>400</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>塵芥神（じんかいしん）</td>
+</tr>
+<tr>
+<td>泡沫の魔杖</td>
+<td>★★★</td>
+<td>0</td>
+<td>600</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>泡沫神（ほうまつしん）</td>
+</tr>
+<tr>
+<td>剛腕の戦斧</td>
+<td>★★★</td>
+<td>1500</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>剛腕神（ごうわんしん）</td>
+</tr>
+<tr>
+<td>烈火の神剣</td>
+<td>★★★</td>
+<td>3000</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>烈火神（れっかしん）</td>
+</tr>
+<tr>
+<td>破壊の星砕き</td>
+<td>★★★</td>
+<td>10000</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>破壊神（はかいしん）</td>
+</tr>
+<tr>
+<td>創世の剣</td>
+<td>★★★</td>
+<td>20000</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>殺戮神（さつりくしん）</td>
+</tr>
+<tr>
+<td>原初の杖</td>
+<td>★★★</td>
+<td>0</td>
+<td>150000</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>創世神（そうせいしん）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="防具">🛡️ 防具</h3>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>名前</th>
+<th>レア</th>
+<th>攻撃</th>
+<th>魔法</th>
+<th>速さ</th>
+<th>賢さ</th>
+<th>防御</th>
+<th>入手元（主要クエスト）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>革の鎧</td>
+<td>★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>5</td>
+<td>薬草採取, 荷物運び</td>
+</tr>
+<tr>
+<td>鎖帷子</td>
+<td>★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>15</td>
+<td>オオカミの群れ退治, 盗賊団の追跡…</td>
+</tr>
+<tr>
+<td>ドラゴン鎧</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>30</td>
+<td>ドラゴン討伐, 魔獣の森制圧</td>
+</tr>
+<tr>
+<td>闇の鎧</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>35</td>
+<td>闇の教団壊滅, 魔王軍の幹部撃破</td>
+</tr>
+<tr>
+<td>神聖なる鎧</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>45</td>
+<td>古代竜討伐, 魔王討伐</td>
+</tr>
+<tr>
+<td>深淵の鎧</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>80</td>
+<td>真・魔王討伐</td>
+</tr>
+<tr>
+<td>転寝の神衣</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>800</td>
+<td>転寝神（うたたねしん）</td>
+</tr>
+<tr>
+<td>魔神王のマント</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>15000</td>
+<td>魔神王（まじんおう）</td>
+</tr>
+<tr>
+<td>創造の鎧</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>30000</td>
+<td>覇道神（はどうしん）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="盾">🔰 盾</h3>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>名前</th>
+<th>レア</th>
+<th>攻撃</th>
+<th>魔法</th>
+<th>速さ</th>
+<th>賢さ</th>
+<th>防御</th>
+<th>入手元（主要クエスト）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>鉄の盾</td>
+<td>★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>10</td>
+<td>ゴブリンの巣退治, トロール討伐…</td>
+</tr>
+<tr>
+<td>炎の盾</td>
+<td>★★★</td>
+<td>0</td>
+<td>15</td>
+<td>0</td>
+<td>0</td>
+<td>20</td>
+<td>ドラゴン討伐, 魔獣の森制圧</td>
+</tr>
+<tr>
+<td>呪いの盾</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>25</td>
+<td>闇の教団壊滅, 魔王軍の幹部撃破</td>
+</tr>
+<tr>
+<td>聖なる盾</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>35</td>
+<td>古代竜討伐, 魔王討伐</td>
+</tr>
+<tr>
+<td>真・聖盾</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>70</td>
+<td>真・魔王討伐</td>
+</tr>
+<tr>
+<td>神域の守護盾</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>200</td>
+<td>神域の門番</td>
+</tr>
+<tr>
+<td>鉄壁の無限盾</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>5000</td>
+<td>鉄壁神（てっぺきしん）</td>
+</tr>
+<tr>
+<td>宇宙の盾</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>50000</td>
+<td>断罪神（だんざいしん）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="腕輪">💍 腕輪</h3>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>名前</th>
+<th>レア</th>
+<th>攻撃</th>
+<th>魔法</th>
+<th>速さ</th>
+<th>賢さ</th>
+<th>防御</th>
+<th>入手元（主要クエスト）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>魔力の腕輪</td>
+<td>★</td>
+<td>0</td>
+<td>10</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>きのこ狩り, 迷子の子供探し</td>
+</tr>
+<tr>
+<td>賢者の腕輪</td>
+<td>★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>20</td>
+<td>0</td>
+<td>地下水路の調査, 呪われた館の調査…</td>
+</tr>
+<tr>
+<td>神の腕輪</td>
+<td>★★★</td>
+<td>20</td>
+<td>20</td>
+<td>0</td>
+<td>20</td>
+<td>0</td>
+<td>古代竜討伐, 魔王討伐</td>
+</tr>
+<tr>
+<td>魔王の腕輪</td>
+<td>★★★</td>
+<td>50</td>
+<td>50</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>真・魔王討伐</td>
+</tr>
+<tr>
+<td>平凡の勲章</td>
+<td>★★★</td>
+<td>500</td>
+<td>500</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>平平凡神（へいへいぼんしん）</td>
+</tr>
+<tr>
+<td>全知の腕輪</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>100000</td>
+<td>0</td>
+<td>因果神（いんがしん）</td>
+</tr>
+<tr>
+<td>管理者権限</td>
+<td>★★★</td>
+<td>999999</td>
+<td>999999</td>
+<td>999999</td>
+<td>999999</td>
+<td>999999</td>
+<td>ザ・デベロッパー</td>
+</tr>
+</tbody>
+</table>
+<h3 id="靴">👟 靴</h3>
+<table>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>名前</th>
+<th>レア</th>
+<th>攻撃</th>
+<th>魔法</th>
+<th>速さ</th>
+<th>賢さ</th>
+<th>防御</th>
+<th>入手元（主要クエスト）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>革の靴</td>
+<td>★</td>
+<td>0</td>
+<td>0</td>
+<td>5</td>
+<td>0</td>
+<td>0</td>
+<td>きのこ狩り, 荷物運び…</td>
+</tr>
+<tr>
+<td>俊足の靴</td>
+<td>★★</td>
+<td>0</td>
+<td>0</td>
+<td>15</td>
+<td>0</td>
+<td>0</td>
+<td>迷子の子供探し, 盗賊団の追跡…</td>
+</tr>
+<tr>
+<td>学者の靴</td>
+<td>★★</td>
+<td>0</td>
+<td>0</td>
+<td>10</td>
+<td>15</td>
+<td>0</td>
+<td>古代遺跡の調査, 魔法使いの塔</td>
+</tr>
+<tr>
+<td>影の靴</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>25</td>
+<td>0</td>
+<td>0</td>
+<td>魔獣の森制圧, 魔王軍の幹部撃破</td>
+</tr>
+<tr>
+<td>天使の靴</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>30</td>
+<td>0</td>
+<td>0</td>
+<td>魔王討伐</td>
+</tr>
+<tr>
+<td>虚空の靴</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>60</td>
+<td>0</td>
+<td>0</td>
+<td>真・魔王討伐, 虚無神（きょむしん）</td>
+</tr>
+<tr>
+<td>疾風の神足</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>7000</td>
+<td>0</td>
+<td>0</td>
+<td>疾風神（しっぷうしん）</td>
+</tr>
+<tr>
+<td>次元の靴</td>
+<td>★★★</td>
+<td>0</td>
+<td>0</td>
+<td>110000</td>
+<td>0</td>
+<td>0</td>
+<td>無窮神（むきゅうしん）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="実績一覧">7. 実績一覧</h2>
+<table>
+<thead>
+<tr>
+<th>アイコン</th>
+<th>名前</th>
+<th>解除条件</th>
+<th>レアリティ</th>
+<th>実装状況</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🎉</td>
+<td>冒険者デビュー</td>
+<td>初めてのクエストに成功する</td>
+<td>★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>⭐</td>
+<td>ベテラン冒険者</td>
+<td>クエストを10回成功させる</td>
+<td>★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>🌟</td>
+<td>熟練の冒険者</td>
+<td>クエストを50回成功させる</td>
+<td>★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>💫</td>
+<td>伝説の冒険者</td>
+<td>クエストを100回成功させる</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>📈</td>
+<td>駆け出し</td>
+<td>レベル5に到達する</td>
+<td>★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>📊</td>
+<td>中堅冒険者</td>
+<td>レベル10に到達する</td>
+<td>★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>🔥</td>
+<td>一流冒険者</td>
+<td>レベル20に到達する</td>
+<td>★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>👑</td>
+<td>英雄</td>
+<td>レベル30に到達する</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>⚔️</td>
+<td>初めての装備</td>
+<td>初めて装備を入手する</td>
+<td>★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>🛡️</td>
+<td>完全武装</td>
+<td>全ての装備スロットを埋める</td>
+<td>★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>💎</td>
+<td>伝説の装備</td>
+<td>エピック装備を入手する</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>💕</td>
+<td>マキナの信頼</td>
+<td>親密度80に到達する</td>
+<td>★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>💖</td>
+<td>最高の相棒</td>
+<td>親密度100に到達する</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>🏆</td>
+<td>世界を救いし者</td>
+<td>魔王を討伐する</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>👑</td>
+<td>真なる勇者</td>
+<td>真・魔王を討伐する</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>⚡</td>
+<td>神殺し</td>
+<td>創世神に勝利する</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>✨</td>
+<td>クエストマスター</td>
+<td>全てのクエストを成功させる</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>🤦</td>
+<td>油断大敵</td>
+<td>レベル20以上で薬草採取に失敗する</td>
+<td>★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>🎲</td>
+<td>奇跡</td>
+<td>成功率5%以下のクエストに成功する</td>
+<td>★★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>😭</td>
+<td>不運の星の下に</td>
+<td>クエストに10回連続で失敗する</td>
+<td>★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>🔥</td>
+<td>無双</td>
+<td>クエストに10回連続で成功する</td>
+<td>★★</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>⚡</td>
+<td>スピードランナー</td>
+<td>1日で10回以上クエストをクリアする</td>
+<td>★★</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="ランクアップ必要成功数と繰り返しグラインド">8.
+ランクアップ必要成功数と繰り返しグラインド</h2>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th>ランク</th>
+<th>必要成功数</th>
+<th>クエスト種類数</th>
+<th>最短繰り返し数</th>
+<th>最短時間（100%成功）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rank F</td>
+<td>3回</td>
+<td>3種</td>
+<td>0回</td>
+<td>0h25m（25分）</td>
+</tr>
+<tr>
+<td>Rank E</td>
+<td>5回</td>
+<td>3種</td>
+<td>2回</td>
+<td>3h15m（195分）</td>
+</tr>
+<tr>
+<td>Rank D</td>
+<td>7回</td>
+<td>3種</td>
+<td>4回</td>
+<td>15h30m（930分）</td>
+</tr>
+<tr>
+<td>Rank C</td>
+<td>10回</td>
+<td>3種</td>
+<td>7回</td>
+<td>41h30m（2490分）</td>
+</tr>
+<tr>
+<td>Rank B</td>
+<td>15回</td>
+<td>3種</td>
+<td>12回</td>
+<td>93h（5580分）</td>
+</tr>
+<tr>
+<td>Rank A</td>
+<td>20回</td>
+<td>3種</td>
+<td>17回</td>
+<td>181h30m（10890分）</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="テスト用設定">9. テスト用設定</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>項目</th>
+<th>テスト値</th>
+<th>本番値</th>
+<th>切替方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>クエスト時間</td>
+<td>0.5秒</td>
+<td><code>durationMinutes</code>の実値</td>
+<td><code>_useTestQuestDuration = false</code></td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
