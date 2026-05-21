@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../providers/game_provider.dart';
 import '../data/quest_data.dart';
 import '../models/makina.dart';
 
 class CollectionScreen extends StatefulWidget {
-  const CollectionScreen({Key? key}) : super(key: key);
+  const CollectionScreen({super.key});
 
   @override
   State<CollectionScreen> createState() => _CollectionScreenState();
@@ -55,7 +54,7 @@ class _CollectionScreenState extends State<CollectionScreen>
 
 // クエスト図鑑タブ
 class QuestCollectionTab extends StatelessWidget {
-  const QuestCollectionTab({Key? key}) : super(key: key);
+  const QuestCollectionTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +288,7 @@ class QuestCollectionTab extends StatelessWidget {
 
 // 装備図鑑タブ
 class EquipmentCollectionTab extends StatelessWidget {
-  const EquipmentCollectionTab({Key? key}) : super(key: key);
+  const EquipmentCollectionTab({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -433,7 +432,7 @@ class EquipmentCollectionTab extends StatelessWidget {
                   child: Container(
                     decoration: BoxDecoration(
                       color: isDiscovered
-                          ? _getRarityColor(equipment.rarity).withOpacity(0.1)
+                          ? _getRarityColor(equipment.rarity).withValues(alpha: 0.1)
                           : Colors.grey.shade300,
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(12),
@@ -533,7 +532,7 @@ class EquipmentCollectionTab extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color, width: 1),
       ),
@@ -611,37 +610,33 @@ class EquipmentCollectionTab extends StatelessWidget {
     );
   }
 
-  IconData _getSlotIcon(String slot) {
+  IconData _getSlotIcon(EquipmentSlot slot) {
     switch (slot) {
-      case 'weapon':
+      case EquipmentSlot.weapon:
         return Icons.sports_martial_arts;
-      case 'armor':
+      case EquipmentSlot.armor:
         return Icons.shield;
-      case 'shield':
+      case EquipmentSlot.shield:
         return Icons.security;
-      case 'bracelet':
+      case EquipmentSlot.bracelet:
         return Icons.circle;
-      case 'boots':
+      case EquipmentSlot.boots:
         return Icons.directions_run;
-      default:
-        return Icons.help;
     }
   }
 
-  String _getSlotName(String slot) {
+  String _getSlotName(EquipmentSlot slot) {
     switch (slot) {
-      case 'weapon':
+      case EquipmentSlot.weapon:
         return '武器';
-      case 'armor':
+      case EquipmentSlot.armor:
         return '防具';
-      case 'shield':
+      case EquipmentSlot.shield:
         return '盾';
-      case 'bracelet':
+      case EquipmentSlot.bracelet:
         return '腕輪';
-      case 'boots':
+      case EquipmentSlot.boots:
         return '靴';
-      default:
-        return '不明';
     }
   }
 

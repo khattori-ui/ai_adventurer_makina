@@ -5,7 +5,7 @@ import '../providers/game_provider.dart';
 import '../models/item.dart';
 
 class ActiveBuffScreen extends StatelessWidget {
-  const ActiveBuffScreen({Key? key}) : super(key: key);
+  const ActiveBuffScreen({super.key});
 
   @override
   Widget build(BuildContext context) {

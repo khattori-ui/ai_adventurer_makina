@@ -4,7 +4,7 @@ import '../providers/game_provider.dart';
 import '../models/makina.dart';
 
 class EquipmentScreen extends StatelessWidget {
-  const EquipmentScreen({Key? key}) : super(key: key);
+  const EquipmentScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -48,13 +48,15 @@ class EquipmentScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _buildEquipmentSlot(
-                context, provider, '武器', 'weapon', makina.weapon),
-            _buildEquipmentSlot(context, provider, '防具', 'armor', makina.armor),
+                context, provider, '武器', EquipmentSlot.weapon, makina.weapon),
             _buildEquipmentSlot(
-                context, provider, '盾', 'shield', makina.shield),
+                context, provider, '防具', EquipmentSlot.armor, makina.armor),
             _buildEquipmentSlot(
-                context, provider, '腕輪', 'bracelet', makina.bracelet),
-            _buildEquipmentSlot(context, provider, '靴', 'boots', makina.boots),
+                context, provider, '盾', EquipmentSlot.shield, makina.shield),
+            _buildEquipmentSlot(context, provider, '腕輪', EquipmentSlot.bracelet,
+                makina.bracelet),
+            _buildEquipmentSlot(
+                context, provider, '靴', EquipmentSlot.boots, makina.boots),
             const SizedBox(height: 16),
             _buildTotalBonus(makina),
           ],
@@ -64,11 +66,11 @@ class EquipmentScreen extends StatelessWidget {
   }
 
   // ✨ 武器とそれ以外でサイズ感を分ける決定版
-  Widget _buildEquipmentIcon(String slotId, int? rarity, {double size = 80}) {
-    String imagePath = 'assets/images/$slotId.png';
+  Widget _buildEquipmentIcon(EquipmentSlot slot, int? rarity, {double size = 80}) {
+    String imagePath = 'assets/images/${slot.name}.png';
 
-    // 👈 武器は横長なのでそのまま(1.1倍)、それ以外は余白を埋めるために大きく(2.0倍)します
-    double scale = (slotId == 'weapon') ? 1.1 : 2.0;
+    // 武器は横長なのでそのまま(1.1倍)、それ以外は余白を埋めるために大きく(2.0倍)
+    double scale = (slot == EquipmentSlot.weapon) ? 1.1 : 2.0;
 
     return SizedBox(
       width: size,
@@ -81,7 +83,7 @@ class EquipmentScreen extends StatelessWidget {
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) {
               return Icon(
-                _getSlotIcon(slotId),
+                _getSlotIcon(slot),
                 color: rarity != null
                     ? _getRarityColor(rarity)
                     : Colors.deepPurple,
@@ -98,7 +100,7 @@ class EquipmentScreen extends StatelessWidget {
     BuildContext context,
     GameProvider provider,
     String slotName,
-    String slotId,
+    EquipmentSlot slot,
     Equipment? equipment,
   ) {
     return Card(
@@ -106,7 +108,7 @@ class EquipmentScreen extends StatelessWidget {
       color: Colors.grey.shade100,
       clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading: _buildEquipmentIcon(slotId, equipment?.rarity, size: 80),
+        leading: _buildEquipmentIcon(slot, equipment?.rarity, size: 80),
         title: Text(slotName, style: const TextStyle(fontSize: 18)),
         subtitle: equipment != null
             ? Column(
@@ -130,12 +132,12 @@ class EquipmentScreen extends StatelessWidget {
         trailing: equipment != null
             ? IconButton(
                 icon: const Icon(Icons.close),
-                onPressed: () => provider.unequipItem(slotId),
+                onPressed: () => provider.unequipItem(slot),
                 tooltip: '装備を外す',
                 iconSize: 32,
               )
             : null,
-        onTap: () => _showEquipmentSelectDialog(context, provider, slotId),
+        onTap: () => _showEquipmentSelectDialog(context, provider, slot),
         contentPadding:
             const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
       ),
@@ -206,8 +208,7 @@ class EquipmentScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       clipBehavior: Clip.antiAlias,
       child: ListTile(
-        leading:
-            _buildEquipmentIcon(equipment.slot, equipment.rarity, size: 60),
+        leading: _buildEquipmentIcon(equipment.slot, equipment.rarity, size: 60),
         title: Text(
           equipment.name,
           style: TextStyle(
@@ -235,10 +236,10 @@ class EquipmentScreen extends StatelessWidget {
   void _showEquipmentSelectDialog(
     BuildContext context,
     GameProvider provider,
-    String slotId,
+    EquipmentSlot slot,
   ) {
     final availableEquipment =
-        provider.makina.inventory.where((e) => e.slot == slotId).toList();
+        provider.makina.inventory.where((e) => e.slot == slot).toList();
 
     if (availableEquipment.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -256,8 +257,8 @@ class EquipmentScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: availableEquipment.map((equipment) {
               return ListTile(
-                leading: _buildEquipmentIcon(equipment.slot, equipment.rarity,
-                    size: 80),
+                leading:
+                    _buildEquipmentIcon(equipment.slot, equipment.rarity, size: 80),
                 title: Text(
                   equipment.name,
                   style: TextStyle(
@@ -288,20 +289,18 @@ class EquipmentScreen extends StatelessWidget {
     );
   }
 
-  IconData _getSlotIcon(String slot) {
+  IconData _getSlotIcon(EquipmentSlot slot) {
     switch (slot) {
-      case 'weapon':
+      case EquipmentSlot.weapon:
         return Icons.sports_martial_arts;
-      case 'armor':
+      case EquipmentSlot.armor:
         return Icons.shield;
-      case 'shield':
+      case EquipmentSlot.shield:
         return Icons.security;
-      case 'bracelet':
+      case EquipmentSlot.bracelet:
         return Icons.circle;
-      case 'boots':
+      case EquipmentSlot.boots:
         return Icons.directions_run;
-      default:
-        return Icons.help;
     }
   }
 
@@ -323,8 +322,9 @@ class EquipmentScreen extends StatelessWidget {
     if (equipment.attackBonus > 0) bonuses.add('攻撃+${equipment.attackBonus}');
     if (equipment.magicBonus > 0) bonuses.add('魔法+${equipment.magicBonus}');
     if (equipment.speedBonus > 0) bonuses.add('速さ+${equipment.speedBonus}');
-    if (equipment.intelligenceBonus > 0)
+    if (equipment.intelligenceBonus > 0) {
       bonuses.add('賢さ+${equipment.intelligenceBonus}');
+    }
     if (equipment.defenseBonus > 0) bonuses.add('防御+${equipment.defenseBonus}');
     return bonuses.join(', ');
   }

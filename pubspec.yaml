@@ -1,28 +1,50 @@
-name: ai_makina_adventure
-description: "AI冒険者マキナの開発プロジェクト"
+name: ai_adventurer_makina
+description: AI冒険者マキナ - AI育成ゲーム
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.1.0 <4.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  http: ^1.1.0
-  shared_preferences: ^2.2.2
+
+  # 状態管理
   provider: ^6.1.1
+
+  # Firebase
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  cloud_firestore: ^6.1.2
+
+  # ローカルストレージ
+  shared_preferences: ^2.2.2
+
+  # 暗号化
+  crypto: ^3.0.3
+
+  # 環境変数
+  flutter_dotenv: ^6.0.0
+
+  # HTTP通信
+  http: ^1.1.2
+
+  # 日付フォーマット
   intl: ^0.20.2
-  flutter_dotenv: ^6.0.0  # ここに移動しました
+
+  # UI関連
+  cupertino_icons: ^1.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+
+  # 画像アセットの登録
   assets:
     - assets/images/
-    - .env  # これを忘れずに追加
+    - .env

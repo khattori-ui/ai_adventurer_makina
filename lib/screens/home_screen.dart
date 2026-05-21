@@ -7,14 +7,66 @@ import 'conversation_screen.dart';
 import 'equipment_screen.dart';
 import 'achievement_screen.dart';
 import 'debug_item_screen.dart';
+import 'debug_time_estimator_screen.dart';
+import 'debug_stats_screen.dart';
 import 'reincarnation_screen.dart';
 import 'active_buff_screen.dart';
 import 'costume_screen.dart';
-import 'collection_screen.dart'; // ★追加
+import 'collection_screen.dart';
 import 'shop_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _isShowingDialog = false;
+  GameProvider? _provider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newProvider = context.read<GameProvider>();
+    if (_provider != newProvider) {
+      _provider?.removeListener(_onProviderChanged);
+      _provider = newProvider;
+      _provider!.addListener(_onProviderChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _provider?.removeListener(_onProviderChanged);
+    super.dispose();
+  }
+
+  void _onProviderChanged() {
+    if (_isShowingDialog || !mounted) return;
+    final provider = _provider!;
+
+    if (provider.questResult != null) {
+      _isShowingDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) { _isShowingDialog = false; return; }
+        _showQuestResultDialog(context, provider).then((_) => _isShowingDialog = false);
+      });
+    } else if (provider.hasRankedUp) {
+      _isShowingDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) { _isShowingDialog = false; return; }
+        _showRankUpDialog(context, provider).then((_) => _isShowingDialog = false);
+      });
+    } else if (provider.newlyUnlockedAchievement != null) {
+      _isShowingDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) { _isShowingDialog = false; return; }
+        _showAchievementUnlockedDialog(context, provider).then((_) => _isShowingDialog = false);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,55 +78,35 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
+            icon: const Icon(Icons.timer_outlined, color: Colors.cyanAccent),
+            tooltip: 'プレイ時間シミュレーター',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(
+                    builder: (_) => const DebugTimeEstimatorScreen())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.tune, color: Colors.pinkAccent),
+            tooltip: 'デバッグ：ステータス変更',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(
+                    builder: (_) => const DebugStatsScreen())),
+          ),
+          IconButton(
             icon: const Icon(Icons.bug_report, color: Colors.orangeAccent),
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const DebugItemScreen())),
           ),
           IconButton(
-            icon: const Icon(Icons.checkroom, color: Colors.pink),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CostumeScreen()),
-            ),
-          ),
-          // ★図鑑ボタンを追加
-          IconButton(
-            icon: const Icon(Icons.menu_book, color: Colors.teal),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CollectionScreen()),
-            ),
-          ),
-          IconButton(
-              icon: const Icon(Icons.emoji_events),
-              onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const AchievementScreen()))),
-          IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => _showResetDialog(context)),
-          IconButton(
-            icon: const Icon(Icons.shopping_cart, color: Colors.amber),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ShopScreen()),
-            ),
-          ),
         ],
       ),
       body: Consumer<GameProvider>(
         builder: (context, provider, child) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (provider.questResult != null)
-              _showQuestResultDialog(context, provider);
-            else if (provider.hasRankedUp)
-              _showRankUpDialog(context, provider);
-            else if (provider.newlyUnlockedAchievement != null)
-              _showAchievementUnlockedDialog(context, provider);
-          });
-          if (provider.isLoading)
+          if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
+          }
+
           return SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -82,23 +114,25 @@ class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildMakinaCard(context, provider),
-                  const SizedBox(height: 20),
-                  if (provider.makina.activeBuffs.any((b) => !b.isExpired))
-                    _buildActiveBuffsCard(context, provider),
-                  if (provider.makina.activeBuffs.any((b) => !b.isExpired))
-                    const SizedBox(height: 20),
-                  if (provider.makina.level >= 30)
-                    _buildReincarnationButton(context, provider),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildGuildRankCard(provider),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
                   _buildStatusCard(provider),
-                  const SizedBox(height: 20),
-                  _buildActionButtons(context, provider),
-                  if (provider.currentMessage != null) ...[
-                    const SizedBox(height: 20),
-                    _buildMessageCard(context, provider)
+                  if (provider.makina.activeBuffs.any((b) => !b.isExpired)) ...[
+                    const SizedBox(height: 8),
+                    _buildActiveBuffsCard(context, provider),
                   ],
+                  if (provider.makina.level >= 30) ...[
+                    const SizedBox(height: 8),
+                    _buildReincarnationButton(context, provider),
+                  ],
+                  const SizedBox(height: 24),
+                  _buildMessageCard(context, provider),
+                  const SizedBox(height: 16),
+                  _buildActionButtons(context, provider),
+                  const SizedBox(height: 32),
+                  _buildBottomMenu(context),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -108,204 +142,176 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  String _getCostumeImagePath(String? costumeId) {
-    switch (costumeId) {
-      case 'school_uniform':
-        return 'assets/images/costume_school.png';
-      case 'knight_armor':
-        return 'assets/images/costume_knight.png';
-      case 'mage_robe':
-        return 'assets/images/costume_mage.png';
-      case 'casual':
-        return 'assets/images/costume_casual.png';
-      case 'swimsuit':
-        return 'assets/images/costume_swim.png';
-      case 'dress':
-        return 'assets/images/costume_dress.png';
-      case 'default':
-      default:
-        return 'assets/images/makina.png';
-    }
-  }
-
-  Widget _buildActiveBuffsCard(BuildContext context, GameProvider provider) {
-    final activeBuffs =
-        provider.makina.activeBuffs.where((b) => !b.isExpired).toList();
-
+  Widget _buildBottomMenu(BuildContext context) {
     return Card(
-      color: Colors.purple.shade50,
-      elevation: 4,
-      child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ActiveBuffScreen()),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.auto_awesome,
-                          color: Colors.purple, size: 28),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'アクティブバフ',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.purple,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${activeBuffs.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              ...activeBuffs.take(2).map((buff) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.check_circle,
-                            color: Colors.green, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            buff.name,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
-                        Text(
-                          _formatShortTime(
-                              buff.expiry.difference(DateTime.now())),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )),
-              if (activeBuffs.length > 2)
-                Text(
-                  '他${activeBuffs.length - 2}件...',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              const SizedBox(height: 8),
-              const Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    '詳細を見る',
-                    style: TextStyle(
-                      color: Colors.purple,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(Icons.arrow_forward, color: Colors.purple, size: 16),
-                ],
-              ),
-            ],
-          ),
+      elevation: 2,
+      color: Colors.grey.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildMenuIcon(context, Icons.shopping_cart, 'ショップ', Colors.amber,
+                const ShopScreen()),
+            _buildMenuIcon(context, Icons.checkroom, '更衣室', Colors.pink,
+                const CostumeScreen()),
+            _buildMenuIcon(context, Icons.menu_book, '図鑑', Colors.teal,
+                const CollectionScreen()),
+            _buildMenuIcon(context, Icons.emoji_events, '実績', Colors.deepPurple,
+                const AchievementScreen()),
+          ],
         ),
       ),
     );
   }
 
-  String _formatShortTime(Duration duration) {
-    if (duration.inDays > 0) {
-      return '${duration.inDays}日';
-    } else if (duration.inHours > 0) {
-      return '${duration.inHours}時間';
-    } else if (duration.inMinutes > 0) {
-      return '${duration.inMinutes}分';
-    } else {
-      return '${duration.inSeconds}秒';
-    }
+  Widget _buildMenuIcon(BuildContext context, IconData icon, String label,
+      Color color, Widget screen) {
+    return InkWell(
+      onTap: () =>
+          Navigator.push(context, MaterialPageRoute(builder: (_) => screen)),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 4),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
   }
 
-  Widget _buildReincarnationButton(
-      BuildContext context, GameProvider provider) {
+  Widget _buildMessageCard(BuildContext context, GameProvider provider) {
+    final message = provider.currentMessage ?? "師匠、あたしと一緒に頑張ろうね！";
     return Card(
-      color: Colors.amber.shade100,
-      elevation: 6,
-      shape: RoundedRectangleBorder(
+        elevation: 6,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Colors.amber, width: 2)),
-      child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ReincarnationScreen()),
+          side: BorderSide(color: Colors.blue.shade100, width: 2),
         ),
-        child: const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.auto_awesome, color: Colors.amber, size: 32),
-              SizedBox(width: 12),
-              Text('転生の祭壇へ',
-                  style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange)),
-            ],
-          ),
+        child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(
+                children: [
+                  const Icon(Icons.auto_awesome, size: 18, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Text('マキナ',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade800)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(message, style: const TextStyle(fontSize: 16, height: 1.5)),
+              const SizedBox(height: 8),
+              Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton.icon(
+                      onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ConversationScreen())),
+                      icon: const Icon(Icons.forum),
+                      label: const Text('返事をする'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade600,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20)),
+                      )))
+            ])));
+  }
+
+  Widget _buildActionButtons(BuildContext context, GameProvider provider) {
+    if (provider.isOnQuest) {
+      return Card(
+          color: Colors.orange.shade50,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Colors.orange)),
+          child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.orange)),
+                  const SizedBox(width: 16),
+                  Text('進行中: ${provider.remainingTime?.inSeconds ?? 0}秒',
+                      style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange))
+                ],
+              )));
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const QuestListScreen())),
+              icon: const Icon(Icons.map),
+              label: const Text('クエスト'),
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 54),
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)))),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: ElevatedButton.icon(
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const EquipmentScreen())),
+              icon: const Icon(Icons.shield),
+              label: const Text('装備'),
+              style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 54),
+                  backgroundColor: Colors.orange.shade700,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)))),
+        ),
+      ],
     );
   }
 
   Widget _buildMakinaCard(BuildContext context, GameProvider provider) {
     final m = provider.makina;
-    final imagePath = _getCostumeImagePath(m.currentOutfitId);
-
+    String imagePath = 'assets/images/makina.png';
+    if (m.currentOutfitId != null && m.currentOutfitId != 'default') {
+      imagePath =
+          'assets/images/costume_${m.currentOutfitId!.replaceAll('costume_', '')}.png';
+    }
     return Card(
       elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Colors.blue.shade50),
-                child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(imagePath,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.person, size: 100)))),
+            ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(imagePath,
+                    height: 180,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.person,
+                        size: 100, color: Colors.grey))),
             const SizedBox(height: 12),
             Text(
-                'マキナ ${m.reincarnationCount > 0 ? '(転生回数: ${m.reincarnationCount})' : ''}',
+                'マキナ ${m.reincarnationCount > 0 ? '(転生:${m.reincarnationCount})' : ''}',
                 style:
                     const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            Text('親密度: ${m.intimacy.toStringAsFixed(0)}'),
             const SizedBox(height: 8),
             Row(children: [
               Text('Lv.${m.level}',
@@ -314,11 +320,12 @@ class HomeScreen extends StatelessWidget {
               Expanded(
                   child: LinearProgressIndicator(
                       value: m.experience / m.experienceToNextLevel,
-                      backgroundColor: Colors.grey.shade300,
+                      backgroundColor: Colors.grey.shade200,
                       valueColor: const AlwaysStoppedAnimation<Color>(
-                          Colors.deepPurple))),
+                          Colors.deepPurple),
+                      minHeight: 8)),
               const SizedBox(width: 8),
-              Text('${m.experience}/${m.experienceToNextLevel}')
+              Text('${m.experience}')
             ]),
           ],
         ),
@@ -330,20 +337,13 @@ class HomeScreen extends StatelessWidget {
     final m = provider.makina;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(12.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('ステータス (バフ適用済み)',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
             _buildStatRow('こうげき', m.effectiveAttack, Colors.red, 1000),
             _buildStatRow('まほう', m.effectiveMagic, Colors.blue, 1000),
             _buildStatRow('ぼうぎょ', m.effectiveDefense, Colors.orange, 1000),
-            const Divider(height: 32),
-            const Text('性格パラメータ',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
+            const Divider(),
             _buildStatRow('勇敢さ', m.brave.toInt(), Colors.deepOrange, 100,
                 isPersonality: true),
             _buildStatRow('依存度', m.dependent.toInt(), Colors.pinkAccent, 100,
@@ -358,178 +358,150 @@ class HomeScreen extends StatelessWidget {
       {bool isPersonality = false}) {
     double progress =
         isPersonality ? (val + 100) / 200 : (val / maxVal).clamp(0.0, 1.0);
-
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          SizedBox(width: 80, child: Text(name)),
-          Expanded(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(children: [
+        SizedBox(
+            width: 60, child: Text(name, style: const TextStyle(fontSize: 12))),
+        Expanded(
             child: LinearProgressIndicator(
-              value: progress,
-              backgroundColor: Colors.grey.shade300,
-              valueColor: AlwaysStoppedAnimation(col),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 40,
-            child: Text('$val',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.right),
-          )
-        ],
-      ),
+                value: progress,
+                backgroundColor: Colors.grey.shade100,
+                valueColor: AlwaysStoppedAnimation(col),
+                minHeight: 6)),
+        const SizedBox(width: 12),
+        Text('$val',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))
+      ]),
     );
-  }
-
-  void _showQuestResultDialog(BuildContext context, GameProvider provider) {
-    final res = provider.questResult!;
-    showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => Dialog(
-                child: SingleChildScrollView(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Image.asset(
-                  res.isSuccess
-                      ? 'assets/images/quest_success_bg.png'
-                      : 'assets/images/quest_failure_bg.png',
-                  height: 300,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Container(
-                      height: 300,
-                      color: res.isSuccess ? Colors.green : Colors.red,
-                      child: Icon(
-                          res.isSuccess ? Icons.check_circle : Icons.cancel,
-                          size: 100,
-                          color: Colors.white))),
-              Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(children: [
-                    Text(res.questName,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Text('獲得EXP: +${res.expGained}',
-                        style: const TextStyle(color: Colors.blue)),
-                    if (res.drop != null)
-                      Text('入手: ${res.drop!.name}',
-                          style: const TextStyle(color: Colors.orange)),
-                    const Divider(),
-                    Text(res.message, textAlign: TextAlign.center),
-                    const SizedBox(height: 20),
-                    ElevatedButton(
-                        onPressed: () {
-                          provider.clearQuestResult();
-                          Navigator.pop(context);
-                        },
-                        child: const Text('閉じる'))
-                  ]))
-            ]))));
   }
 
   Widget _buildGuildRankCard(GameProvider provider) {
     final m = provider.makina;
-    final name = QuestData.getGuildRankName(m.guildRank);
-    final req = QuestData.getQuestsRequiredForRankUp(m.guildRank);
     return Card(
         color: Colors.deepPurple.shade50,
         child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('ランク',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                        color: Colors.deepPurple,
-                        borderRadius: BorderRadius.circular(20)),
-                    child: Text(name,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold)))
-              ]),
-              if (m.guildRank < 6) ...[
-                const SizedBox(height: 12),
-                Text('昇格まで: ${m.questSuccessCountForCurrentRank} / $req'),
-                LinearProgressIndicator(
-                    value: m.questSuccessCountForCurrentRank / req,
-                    backgroundColor: Colors.grey.shade300,
-                    valueColor: const AlwaysStoppedAnimation(Colors.amber))
-              ]
-            ])));
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('冒険者ランク',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(QuestData.getGuildRankName(m.guildRank),
+                      style: const TextStyle(
+                          color: Colors.deepPurple,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold))
+                ])));
   }
 
-  Widget _buildActionButtons(BuildContext context, GameProvider provider) {
-    if (provider.isOnQuest)
-      return Card(
-          color: Colors.orange.shade100,
-          child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(children: [
-                const Icon(Icons.access_time, size: 48, color: Colors.orange),
-                Text('残り: ${provider.remainingTime?.inSeconds}秒',
-                    style: const TextStyle(fontSize: 24))
-              ])));
-    return Column(children: [
-      ElevatedButton.icon(
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const QuestListScreen())),
-          icon: const Icon(Icons.map),
-          label: const Text('クエスト'),
-          style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50),
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white)),
-      const SizedBox(height: 12),
-      ElevatedButton.icon(
-          onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => const EquipmentScreen())),
-          icon: const Icon(Icons.shield),
-          label: const Text('装備'),
-          style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50),
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white)),
-    ]);
+  Widget _buildActiveBuffsCard(BuildContext context, GameProvider provider) {
+    return ListTile(
+      tileColor: Colors.purple.shade50,
+      leading: const Icon(Icons.auto_awesome, color: Colors.purple),
+      title: const Text('バフ発動中'),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const ActiveBuffScreen())),
+    );
   }
 
-  Widget _buildMessageCard(BuildContext context, GameProvider provider) {
-    return Card(
-        color: Colors.blue.shade50,
-        child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('マキナの言葉',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text(provider.currentMessage!),
-              Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const ConversationScreen())),
-                      child: const Text('返事をする')))
-            ])));
+  Widget _buildReincarnationButton(
+      BuildContext context, GameProvider provider) {
+    return ElevatedButton(
+      onPressed: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const ReincarnationScreen())),
+      style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.amber.shade100,
+          foregroundColor: Colors.orange,
+          minimumSize: const Size(double.infinity, 40)),
+      child: const Text('転生の祭壇へ'),
+    );
   }
 
-  void _showRankUpDialog(BuildContext context, GameProvider provider) {
-    showDialog(
+  Future<void> _showQuestResultDialog(
+      BuildContext context, GameProvider provider) async {
+    final res = provider.questResult!;
+    final drop = res.drop;
+    final String imagePath = res.isSuccess
+        ? 'assets/images/quest_success_bg.png'
+        : 'assets/images/quest_failure_bg.png';
+
+    await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+              title: Text(res.isSuccess ? 'クエスト成功！' : '失敗...'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      height: 250,
+                      width: double.infinity,
+                      child: Image.asset(imagePath,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.image_not_supported, size: 100)),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(res.message),
+                    if (drop != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.auto_awesome,
+                                color: Colors.amber, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('装備ドロップ！',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.amber,
+                                          fontWeight: FontWeight.bold)),
+                                  Text(drop.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                    onPressed: () {
+                      provider.clearQuestResult();
+                      Navigator.pop(context);
+                    },
+                    child: const Text('OK'))
+              ],
+            ));
+  }
+
+  Future<void> _showRankUpDialog(
+      BuildContext context, GameProvider provider) async {
+    await showDialog(
         context: context,
         builder: (_) => AlertDialog(
                 title: const Text('ランクアップ！'),
                 content: Text(
-                    '${QuestData.getGuildRankName(provider.makina.guildRank)}ランクになったよ！'),
+                    'ランクが ${QuestData.getGuildRankName(provider.makina.guildRank)} になりました！'),
                 actions: [
                   TextButton(
                       onPressed: () {
@@ -540,10 +512,10 @@ class HomeScreen extends StatelessWidget {
                 ]));
   }
 
-  void _showAchievementUnlockedDialog(
-      BuildContext context, GameProvider provider) {
+  Future<void> _showAchievementUnlockedDialog(
+      BuildContext context, GameProvider provider) async {
     final a = provider.newlyUnlockedAchievement!;
-    showDialog(
+    await showDialog(
         context: context,
         builder: (_) => AlertDialog(
                 title: const Text('実績解除！'),
@@ -563,18 +535,19 @@ class HomeScreen extends StatelessWidget {
         context: context,
         builder: (_) => AlertDialog(
                 title: const Text('リセット'),
-                content: const Text('全データを消去しますか?'),
+                content: const Text('全データを消去して最初からやり直しますか？'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('いいえ')),
+                      child: const Text('キャンセル')),
                   TextButton(
                       onPressed: () {
                         Provider.of<GameProvider>(context, listen: false)
                             .resetGame();
                         Navigator.pop(context);
                       },
-                      child: const Text('はい'))
+                      child: const Text('はい',
+                          style: TextStyle(color: Colors.red))),
                 ]));
   }
 }

@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 
 class ConversationScreen extends StatefulWidget {
-  const ConversationScreen({Key? key}) : super(key: key);
+  const ConversationScreen({super.key});
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -12,26 +12,24 @@ class ConversationScreen extends StatefulWidget {
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
   final List<ChatMessage> _messages = [];
+  final ScrollController _scrollController = ScrollController();
   bool _isProcessing = false;
-  int _characterCount = 0;
-  static const int _maxCharacters = 500;
+
+  // タイピング演出用の状態
+  String _typingText = '';
+  String _fullText = '';
+  bool _isTyping = false;
+  int _currentCharIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _messageController.addListener(() {
-      setState(() {
-        _characterCount = _messageController.text.length;
-      });
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = Provider.of<GameProvider>(context, listen: false);
       if (provider.currentMessage != null) {
         setState(() {
-          _messages.add(ChatMessage(
-            text: provider.currentMessage!,
-            isPlayer: false,
-          ));
+          _messages.add(
+              ChatMessage(text: provider.currentMessage!, isPlayer: false));
         });
       }
     });
@@ -40,91 +38,171 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void dispose() {
     _messageController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  // --- タイピング演出ロジック ---
+  void _startTypingAnimation(String text) {
+    setState(() {
+      _fullText = text;
+      _typingText = '';
+      _currentCharIndex = 0;
+      _isTyping = true;
+    });
+    _typeNextCharacter();
+  }
+
+  void _typeNextCharacter() {
+    if (!_isTyping || !mounted) return;
+    if (_currentCharIndex < _fullText.length) {
+      setState(() {
+        _typingText = _fullText.substring(0, _currentCharIndex + 1);
+        _currentCharIndex++;
+      });
+      Future.delayed(
+          const Duration(milliseconds: 40), () => _typeNextCharacter());
+      _scrollToBottom();
+    } else {
+      setState(() => _isTyping = false);
+    }
+  }
+
+  void _skipTyping() {
+    if (_isTyping) {
+      setState(() {
+        _typingText = _fullText;
+        _currentCharIndex = _fullText.length;
+        _isTyping = false;
+      });
+    }
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<GameProvider>(context);
+    final m = provider.makina;
+
+    String imagePath = 'assets/images/makina.png';
+    if (m.currentOutfitId != null && m.currentOutfitId != 'default') {
+      imagePath =
+          'assets/images/costume_${m.currentOutfitId!.replaceAll('costume_', '')}.png';
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('マキナとの会話'),
         backgroundColor: Colors.deepPurple,
-        // 👈 右上に残り回数を表示！
-        actions: [
-          Consumer<GameProvider>(
-            builder: (context, provider, child) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: Chip(
-                    label: Text('あと ${provider.remainingConversations}回'),
-                    backgroundColor: Colors.white24,
-                    labelStyle:
-                        const TextStyle(color: Colors.white, fontSize: 12),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () {
+            provider.clearMessage();
+            Navigator.pop(context);
+          },
+        ),
+      ),
+      body: Stack(
+        children: [
+          // 1. 背景としてのマキナ画像
+          Positioned(
+            bottom: 80,
+            right: -20,
+            child: Opacity(
+              opacity: 0.5,
+              child: Image.asset(
+                imagePath,
+                height: MediaQuery.of(context).size.height * 0.6,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.person, size: 200, color: Colors.grey),
+              ),
+            ),
+          ),
+
+          // 2. メインレイアウト
+          Column(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: _skipTyping,
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final isLastAI =
+                          (index == _messages.length - 1 && !message.isPlayer);
+
+                      if (isLastAI && _isTyping) {
+                        return _buildMessageBubble(_typingText, false);
+                      }
+                      return _buildMessageBubble(
+                          message.text, message.isPlayer);
+                    },
                   ),
                 ),
-              );
-            },
+              ),
+              // ★ ここに応答用ボタンを復活させました
+              _buildSuggestionButtons(),
+              _buildInputArea(),
+            ],
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(child: _buildMessageList()),
-          _buildSuggestionButtons(),
-          _buildInputArea(),
-        ],
-      ),
     );
   }
 
-  Widget _buildMessageList() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _messages.length,
-      itemBuilder: (context, index) {
-        final message = _messages[index];
-        return _buildMessageBubble(message);
-      },
-    );
-  }
-
-  Widget _buildMessageBubble(ChatMessage message) {
+  Widget _buildMessageBubble(String text, bool isPlayer) {
     return Align(
-      alignment:
-          message.isPlayer ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: isPlayer ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
         decoration: BoxDecoration(
-          color: message.isPlayer ? Colors.deepPurple : Colors.grey.shade200,
+          color: isPlayer
+              ? Colors.deepPurple.withValues(alpha: 0.9)
+              : Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(16),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
         ),
         child: Text(
-          message.text,
+          text,
           style: TextStyle(
-            color: message.isPlayer ? Colors.white : Colors.black87,
-            fontSize: 16,
-          ),
+              color: isPlayer ? Colors.white : Colors.black87, fontSize: 16),
         ),
       ),
     );
   }
 
+  // ★ 復活させたサジェストボタンのコード
   Widget _buildSuggestionButtons() {
-    if (_isProcessing || _messages.isEmpty || _messages.last.isPlayer) {
+    // タイピング中や通信中はボタンを出さない
+    if (_isProcessing ||
+        _messages.isEmpty ||
+        _messages.last.isPlayer ||
+        _isTyping) {
       return const SizedBox.shrink();
     }
+
     final provider = Provider.of<GameProvider>(context, listen: false);
     final makina = provider.makina;
+
+    // 親密度によって選択肢を変える
     List<String> suggestions = makina.intimacy >= 70
-        ? ['よく頑張ったね！', 'すごいよ！', '大丈夫？']
+        ? ['よく頑張ったね', 'すごいよ', '大丈夫？']
         : (makina.intimacy >= 40
             ? ['よくやった', '次も頑張って', 'お疲れ様']
             : ['報告ご苦労', 'そうか', '次はもっと頑張れ']);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Wrap(
@@ -133,6 +211,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
         children: suggestions
             .map((text) => OutlinedButton(
                   onPressed: () => _sendMessage(text),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.8),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20)),
+                  ),
                   child: Text(text),
                 ))
             .toList(),
@@ -141,73 +224,31 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Widget _buildInputArea() {
-    final provider = Provider.of<GameProvider>(context);
-    final isOverLimit = _characterCount > _maxCharacters;
-    // 👈 会話制限に達しているかチェック
-    final isStaminaEmpty = provider.remainingConversations <= 0;
-
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.white,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          if (_characterCount > 0)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    '$_characterCount / $_maxCharacters',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isOverLimit ? Colors.red : Colors.grey,
-                      fontWeight:
-                          isOverLimit ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ],
-              ),
+          Expanded(
+            child: TextField(
+              controller: _messageController,
+              decoration: const InputDecoration(
+                  hintText: 'メッセージを入力...', border: OutlineInputBorder()),
+              enabled: !_isProcessing && !_isTyping,
             ),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _messageController,
-                  decoration: InputDecoration(
-                    hintText:
-                        isStaminaEmpty ? '今日はもう疲れちゃったみたい...' : 'メッセージを入力...',
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(
-                        color: isOverLimit ? Colors.red : Colors.grey,
-                      ),
-                    ),
-                    errorText: isOverLimit
-                        ? '文字数制限を超えています'
-                        : (isStaminaEmpty ? '1日の制限に達しました' : null),
-                  ),
-                  enabled: !_isProcessing && !isStaminaEmpty, // 👈 制限時は入力不可
-                  maxLines: null,
-                  keyboardType: TextInputType.multiline,
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: (_isProcessing || isOverLimit || isStaminaEmpty)
-                    ? null
-                    : () => _sendMessage(_messageController.text),
-                icon: _isProcessing
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send),
-                color: Colors.deepPurple,
-                disabledColor: Colors.grey,
-              ),
-            ],
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: (_isProcessing || _isTyping)
+                ? null
+                : () => _sendMessage(_messageController.text),
+            icon: _isProcessing
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.send),
+            color: Colors.deepPurple,
           ),
         ],
       ),
@@ -215,39 +256,27 @@ class _ConversationScreenState extends State<ConversationScreen> {
   }
 
   Future<void> _sendMessage(String text) async {
-    if (text.trim().isEmpty || _isProcessing) return;
-    if (text.length > _maxCharacters) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('メッセージは500文字以内にしてください'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    if (text.trim().isEmpty) return;
     setState(() {
       _messages.add(ChatMessage(text: text, isPlayer: true));
-      _messageController.clear();
-      _characterCount = 0;
       _isProcessing = true;
     });
-    final provider = Provider.of<GameProvider>(context, listen: false);
+    _messageController.clear();
+    _scrollToBottom();
+
     try {
+      final provider = Provider.of<GameProvider>(context, listen: false);
       await provider.respondToPlayer(text);
-      if (provider.currentMessage != null) {
+
+      if (mounted && provider.currentMessage != null) {
         setState(() {
           _messages.add(
               ChatMessage(text: provider.currentMessage!, isPlayer: false));
         });
+        _startTypingAnimation(provider.currentMessage!);
       }
-    } catch (e) {
-      setState(() {
-        _messages.add(ChatMessage(text: 'エラーが発生しました...', isPlayer: false));
-      });
     } finally {
-      setState(() {
-        _isProcessing = false;
-      });
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 }

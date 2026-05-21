@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
 
 class ReincarnationScreen extends StatelessWidget {
-  const ReincarnationScreen({Key? key}) : super(key: key);
+  const ReincarnationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +70,7 @@ class ReincarnationScreen extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.amber.withOpacity(0.5),
+            color: Colors.amber.withValues(alpha: 0.5),
             blurRadius: 20,
             spreadRadius: 5,
           ),
@@ -185,7 +185,7 @@ class ReincarnationScreen extends StatelessWidget {
             _buildBenefitItem(Icons.published_with_changes, 'クリア済みクエスト補正',
                 '一度クリアしたクエストの成功率が最大10%上昇', Colors.blue),
             const SizedBox(height: 12),
-            _buildBenefitItem(Icons.inventory_2, '装備品の維持', '装備とアイテムはそのまま引き継がれる',
+            _buildBenefitItem(Icons.inventory_2, '装備品のリセット（再入手可能）', '一度ドロップした装備も再び入手できるようになる',
                 Colors.purple),
             const SizedBox(height: 16),
             Container(
@@ -222,7 +222,7 @@ class ReincarnationScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: color, size: 24),
@@ -361,7 +361,7 @@ class ReincarnationScreen extends StatelessWidget {
               const SizedBox(height: 8),
               _buildDialogBenefit('✨ ステータス成長率の永久アップ'),
               _buildDialogBenefit('✨ クリア済みクエストの成功率補正'),
-              _buildDialogBenefit('✨ 装備品とアイテムの維持'),
+              _buildDialogBenefit('🔄 装備品のリセット（再入手可能になる）'),
               const SizedBox(height: 16),
               const Text('【失うもの】'),
               const SizedBox(height: 8),
