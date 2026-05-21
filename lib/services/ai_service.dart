@@ -40,7 +40,11 @@ class AIService {
       switch (response.statusCode) {
         case 200:
           final data = jsonDecode(response.body);
-          return data['content'][0]['text'];
+          final content = data['content'];
+          if (content is List && content.isNotEmpty && content[0]['text'] != null) {
+            return content[0]['text'] as String;
+          }
+          return 'マキナ：（うまく言葉が出てこない…）';
 
         case 401:
           // 401: 契約エラー（システム設定ミス）

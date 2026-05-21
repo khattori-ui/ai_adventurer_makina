@@ -185,7 +185,7 @@ class ReincarnationScreen extends StatelessWidget {
             _buildBenefitItem(Icons.published_with_changes, 'クリア済みクエスト補正',
                 '一度クリアしたクエストの成功率が最大10%上昇', Colors.blue),
             const SizedBox(height: 12),
-            _buildBenefitItem(Icons.inventory_2, '装備品の維持', '装備とアイテムはそのまま引き継がれる',
+            _buildBenefitItem(Icons.inventory_2, '装備品のリセット（再入手可能）', '一度ドロップした装備も再び入手できるようになる',
                 Colors.purple),
             const SizedBox(height: 16),
             Container(
@@ -361,7 +361,7 @@ class ReincarnationScreen extends StatelessWidget {
               const SizedBox(height: 8),
               _buildDialogBenefit('✨ ステータス成長率の永久アップ'),
               _buildDialogBenefit('✨ クリア済みクエストの成功率補正'),
-              _buildDialogBenefit('✨ 装備品とアイテムの維持'),
+              _buildDialogBenefit('🔄 装備品のリセット（再入手可能になる）'),
               const SizedBox(height: 16),
               const Text('【失うもの】'),
               const SizedBox(height: 8),

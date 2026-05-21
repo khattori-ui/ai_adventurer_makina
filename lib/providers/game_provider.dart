@@ -179,6 +179,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> startQuest(Quest quest) async {
+    if (isOnQuest) return;
     if (_makina.guildRank < quest.requiredGuildRank) return;
     _makina.currentQuest = quest;
     _makina.questStartTime = DateTime.now();
@@ -204,13 +205,18 @@ class GameProvider extends ChangeNotifier {
     _hasRankedUp = false;
     notifyListeners();
 
+    final quest = _makina.currentQuest!;
+    bool success = false;
+    int exp = 0;
+    Equipment? drop;
+    String report = '';
+
     try {
-      final quest = _makina.currentQuest!;
       final isCleared = _makina.clearedQuestIds.contains(quest.id);
       final successRate = quest.calculateSuccessRate(_makina, isCleared);
       final random = Random();
-      final success = random.nextDouble() < successRate;
-      final exp = success ? quest.experienceReward : quest.failureExperience;
+      success = random.nextDouble() < successRate;
+      exp = success ? quest.experienceReward : quest.failureExperience;
 
       _makina.addExperience(exp);
       _droppedEquipment = null;
@@ -225,31 +231,36 @@ class GameProvider extends ChangeNotifier {
           final dropId = availableDrops[random.nextInt(availableDrops.length)];
           final equipment = QuestData.getEquipmentById(dropId);
           if (equipment != null) {
+            drop = equipment;
             _droppedEquipment = equipment;
             _makina.addToInventory(equipment);
           }
         }
       }
 
-      String report = await AIService.generateQuestReport(
-          makina: _makina, quest: quest, success: success);
-      _currentMessage = report;
-      _makina.currentQuest = null;
-      _makina.questStartTime = null;
+      // クエスト実時間を秒単位で累計に加算（バフによる短縮を反映、成功・失敗問わず）
+      {
+        double reduction = 1.0;
+        for (var buff in _makina.activeBuffs) {
+          if (!buff.isExpired && buff.timeReductionRate > 0) {
+            reduction = min(reduction, 1.0 - buff.timeReductionRate);
+          }
+        }
+        _makina.totalQuestPlaySeconds +=
+            (quest.durationMinutes * 60 * reduction).toInt();
+      }
 
       // 連続成功/失敗カウンター更新
       if (success) {
         _makina.totalQuestSuccessCount++;
         _makina.consecutiveSuccessCount++;
         _makina.consecutiveFailCount = 0;
-
         final today = DateTime.now().toIso8601String().substring(0, 10);
         if (_makina.lastQuestClearDate != today) {
           _makina.dailyQuestClearCount = 0;
           _makina.lastQuestClearDate = today;
         }
         _makina.dailyQuestClearCount++;
-
         if (quest.requiredGuildRank == _makina.guildRank) {
           _makina.recordQuestSuccess();
           if (_makina.tryRankUp(
@@ -267,17 +278,35 @@ class GameProvider extends ChangeNotifier {
 
       await _checkAchievements(quest, success, successRate);
 
+      // AIレポート（失敗してもデフォルト文言で続行）
+      try {
+        report = await AIService.generateQuestReport(
+            makina: _makina, quest: quest, success: success);
+      } catch (e) {
+        debugPrint('AIレポート生成エラー: $e');
+        report = success
+            ? 'マキナ：${quest.name}、クリアしたよ！やったね！'
+            : 'マキナ：${quest.name}、今回は上手くいかなかったけど…次は頑張るね！';
+      }
+      _currentMessage = report;
+
+      await _saveMakina();
+    } catch (e) {
+      debugPrint('クエスト完了エラー: $e');
+      report = success
+          ? 'マキナ：クエストクリアしたよ！'
+          : 'マキナ：今回はダメだったけど、また挑戦しよう！';
+      _currentMessage = report;
+    } finally {
+      // 例外時も必ずクエスト状態をクリアして画面を進める
+      _makina.currentQuest = null;
+      _makina.questStartTime = null;
       _questResult = QuestResult(
           isSuccess: success,
           questName: quest.name,
           expGained: exp,
-          drop: _droppedEquipment,
+          drop: drop,
           message: report);
-
-      await _saveMakina();
-    } catch (e) {
-      debugPrint("クエスト完了エラー: $e");
-    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -379,15 +408,15 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void equipItem(Equipment e) {
+  Future<void> equipItem(Equipment e) async {
     _makina.equipItem(e);
-    _saveMakina();
+    await _saveMakina();
     notifyListeners();
   }
 
-  void unequipItem(EquipmentSlot s) {
+  Future<void> unequipItem(EquipmentSlot s) async {
     _makina.unequipItem(s);
-    _saveMakina();
+    await _saveMakina();
     notifyListeners();
   }
 
@@ -485,6 +514,46 @@ class GameProvider extends ChangeNotifier {
     // ── 親密度系 ──────────────────────────────────────
     if (_makina.intimacy >= 80)  await _unlockAchievement('intimacy_80');
     if (_makina.intimacy >= 100) await _unlockAchievement('intimacy_100');
+  }
+
+  // ■■■ デバッグ用メソッド ■■■
+
+  /// ステータスを直接書き換える（デバッグ用）
+  Future<void> debugSetStats({
+    int? level,
+    int? attack,
+    int? magic,
+    int? speed,
+    int? intelligence,
+    int? defense,
+    int? guildRank,
+  }) async {
+    if (level != null) {
+      _makina.level = level;
+      _makina.experience = 0;
+      _makina.experienceToNextLevel = (100 * pow(level, 2.9)).round();
+    }
+    if (attack != null) _makina.attack = attack;
+    if (magic != null) _makina.magic = magic;
+    if (speed != null) _makina.speed = speed;
+    if (intelligence != null) _makina.intelligence = intelligence;
+    if (defense != null) _makina.defense = defense;
+    if (guildRank != null) {
+      _makina.guildRank = guildRank;
+      _makina.questSuccessCountForCurrentRank = 0;
+    }
+    await _saveMakina();
+    notifyListeners();
+  }
+
+  /// 日次カウンターをリセットする（デバッグ用）
+  Future<void> debugResetDailyCounters() async {
+    _makina.dailyConversationCount = 0;
+    _makina.lastConversationDate = '';
+    _makina.dailyQuestClearCount = 0;
+    _makina.lastQuestClearDate = '';
+    await _saveMakina();
+    notifyListeners();
   }
 
   @override

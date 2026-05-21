@@ -264,16 +264,19 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _messageController.clear();
     _scrollToBottom();
 
-    final provider = Provider.of<GameProvider>(context, listen: false);
-    await provider.respondToPlayer(text);
+    try {
+      final provider = Provider.of<GameProvider>(context, listen: false);
+      await provider.respondToPlayer(text);
 
-    if (provider.currentMessage != null) {
-      setState(() {
-        _messages
-            .add(ChatMessage(text: provider.currentMessage!, isPlayer: false));
-        _isProcessing = false;
-      });
-      _startTypingAnimation(provider.currentMessage!);
+      if (mounted && provider.currentMessage != null) {
+        setState(() {
+          _messages.add(
+              ChatMessage(text: provider.currentMessage!, isPlayer: false));
+        });
+        _startTypingAnimation(provider.currentMessage!);
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 }

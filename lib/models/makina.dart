@@ -138,10 +138,10 @@ class Quest {
       s = 3.0;
     }
     double baseRate =
-        (s <= 1.0 ? 0.05 + s * 0.60 : 0.65 + (s - 1.0) * 0.17).clamp(0.05, 0.99);
+        (s <= 1.0 ? 0.001 + s * 0.649 : 0.65 + (s - 1.0) * 0.17).clamp(0.001, 0.999);
     if (isCleared && makina.reincarnationCount > 0) {
       double bonus = (makina.reincarnationCount * 0.05).clamp(0.0, 0.10);
-      baseRate = (baseRate + bonus).clamp(0.05, 0.99);
+      baseRate = (baseRate + bonus).clamp(0.001, 0.999);
     }
     return baseRate;
   }
@@ -222,6 +222,7 @@ class Makina {
   int consecutiveFailCount;
   int dailyQuestClearCount;
   String lastQuestClearDate;
+  int totalQuestPlaySeconds;
 
   Makina({
     this.uid = 'local_user',
@@ -261,6 +262,7 @@ class Makina {
     this.consecutiveFailCount = 0,
     this.dailyQuestClearCount = 0,
     this.lastQuestClearDate = '',
+    this.totalQuestPlaySeconds = 0,
   })  : inventory = inventory ?? [],
         recentMemories = recentMemories ?? [],
         activeBuffs = activeBuffs ?? [],
@@ -337,6 +339,7 @@ class Makina {
     defense = 10;
     intimacy = 50.0;
     guildRank = 0;
+    questSuccessCountForCurrentRank = 0;
     // 装備・インベントリリセット（ドロップ済み記録も消えるため再入手可能になる）
     weapon = null;
     armor = null;
@@ -462,6 +465,7 @@ class Makina {
         'consecutiveFailCount': consecutiveFailCount,
         'dailyQuestClearCount': dailyQuestClearCount,
         'lastQuestClearDate': lastQuestClearDate,
+        'totalQuestPlaySeconds': totalQuestPlaySeconds,
       };
   factory Makina.fromJson(Map<String, dynamic> json) => Makina(
       uid: json['uid'] ?? 'local_user',
@@ -523,5 +527,6 @@ class Makina {
       consecutiveSuccessCount: json['consecutiveSuccessCount'] ?? 0,
       consecutiveFailCount: json['consecutiveFailCount'] ?? 0,
       dailyQuestClearCount: json['dailyQuestClearCount'] ?? 0,
-      lastQuestClearDate: json['lastQuestClearDate'] ?? '');
+      lastQuestClearDate: json['lastQuestClearDate'] ?? '',
+      totalQuestPlaySeconds: json['totalQuestPlaySeconds'] ?? (json['totalQuestPlayMinutes'] != null ? json['totalQuestPlayMinutes'] * 60 : 0));
 }
