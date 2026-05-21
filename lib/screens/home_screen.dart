@@ -7,14 +7,66 @@ import 'conversation_screen.dart';
 import 'equipment_screen.dart';
 import 'achievement_screen.dart';
 import 'debug_item_screen.dart';
+import 'debug_time_estimator_screen.dart';
+import 'debug_stats_screen.dart';
 import 'reincarnation_screen.dart';
 import 'active_buff_screen.dart';
 import 'costume_screen.dart';
 import 'collection_screen.dart';
 import 'shop_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _isShowingDialog = false;
+  GameProvider? _provider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newProvider = context.read<GameProvider>();
+    if (_provider != newProvider) {
+      _provider?.removeListener(_onProviderChanged);
+      _provider = newProvider;
+      _provider!.addListener(_onProviderChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    _provider?.removeListener(_onProviderChanged);
+    super.dispose();
+  }
+
+  void _onProviderChanged() {
+    if (_isShowingDialog || !mounted) return;
+    final provider = _provider!;
+
+    if (provider.questResult != null) {
+      _isShowingDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) { _isShowingDialog = false; return; }
+        _showQuestResultDialog(context, provider).then((_) => _isShowingDialog = false);
+      });
+    } else if (provider.hasRankedUp) {
+      _isShowingDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) { _isShowingDialog = false; return; }
+        _showRankUpDialog(context, provider).then((_) => _isShowingDialog = false);
+      });
+    } else if (provider.newlyUnlockedAchievement != null) {
+      _isShowingDialog = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) { _isShowingDialog = false; return; }
+        _showAchievementUnlockedDialog(context, provider).then((_) => _isShowingDialog = false);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +77,20 @@ class HomeScreen extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.deepPurple,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.timer_outlined, color: Colors.cyanAccent),
+            tooltip: 'プレイ時間シミュレーター',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(
+                    builder: (_) => const DebugTimeEstimatorScreen())),
+          ),
+          IconButton(
+            icon: const Icon(Icons.tune, color: Colors.pinkAccent),
+            tooltip: 'デバッグ：ステータス変更',
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(
+                    builder: (_) => const DebugStatsScreen())),
+          ),
           IconButton(
             icon: const Icon(Icons.bug_report, color: Colors.orangeAccent),
             onPressed: () => Navigator.push(context,
@@ -37,16 +103,6 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Consumer<GameProvider>(
         builder: (context, provider, child) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (provider.questResult != null) {
-              _showQuestResultDialog(context, provider);
-            } else if (provider.hasRankedUp) {
-              _showRankUpDialog(context, provider);
-            } else if (provider.newlyUnlockedAchievement != null) {
-              _showAchievementUnlockedDialog(context, provider);
-            }
-          });
-
           if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -363,34 +419,67 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _showQuestResultDialog(BuildContext context, GameProvider provider) {
+  Future<void> _showQuestResultDialog(
+      BuildContext context, GameProvider provider) async {
     final res = provider.questResult!;
-    // 修正：拡張子を.pngに統一
+    final drop = res.drop;
     final String imagePath = res.isSuccess
         ? 'assets/images/quest_success_bg.png'
         : 'assets/images/quest_failure_bg.png';
 
-    showDialog(
+    await showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => AlertDialog(
-              title: Text(res.isSuccess ? "クエスト成功！" : "失敗..."),
-              // 修正：スクロール可能にする
+              title: Text(res.isSuccess ? 'クエスト成功！' : '失敗...'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // 修正：画像全体が見えるように contain に変更し、高さを少し確保
                     SizedBox(
-                      height: 250, // 高さを確保
+                      height: 250,
                       width: double.infinity,
                       child: Image.asset(imagePath,
-                          fit: BoxFit.contain, // 全体が見えるように縮小
+                          fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) =>
                               const Icon(Icons.image_not_supported, size: 100)),
                     ),
                     const SizedBox(height: 16),
                     Text(res.message),
+                    if (drop != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.auto_awesome,
+                                color: Colors.amber, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('装備ドロップ！',
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.amber,
+                                          fontWeight: FontWeight.bold)),
+                                  Text(drop.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -400,13 +489,14 @@ class HomeScreen extends StatelessWidget {
                       provider.clearQuestResult();
                       Navigator.pop(context);
                     },
-                    child: const Text("OK"))
+                    child: const Text('OK'))
               ],
             ));
   }
 
-  void _showRankUpDialog(BuildContext context, GameProvider provider) {
-    showDialog(
+  Future<void> _showRankUpDialog(
+      BuildContext context, GameProvider provider) async {
+    await showDialog(
         context: context,
         builder: (_) => AlertDialog(
                 title: const Text('ランクアップ！'),
@@ -422,10 +512,10 @@ class HomeScreen extends StatelessWidget {
                 ]));
   }
 
-  void _showAchievementUnlockedDialog(
-      BuildContext context, GameProvider provider) {
+  Future<void> _showAchievementUnlockedDialog(
+      BuildContext context, GameProvider provider) async {
     final a = provider.newlyUnlockedAchievement!;
-    showDialog(
+    await showDialog(
         context: context,
         builder: (_) => AlertDialog(
                 title: const Text('実績解除！'),

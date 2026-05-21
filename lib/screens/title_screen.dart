@@ -250,6 +250,28 @@ class _TitleScreenState extends State<TitleScreen>
           ),
         ),
       );
+    } else if (!provider.makina.hasSeenTutorial) {
+      // プロローグ済みだがチュートリアル未完了の場合はチュートリアルへ
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => StoryScreen(
+            scenes: StoryData.getTutorialScenes(),
+            canSkip: false,
+            onComplete: () async {
+              await provider.markTutorialSeen();
+              if (context.mounted) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HomeScreen(),
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      );
     } else {
       // すでに見ている場合は直接ホームへ
       Navigator.pushReplacement(
