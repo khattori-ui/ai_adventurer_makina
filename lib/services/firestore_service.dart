@@ -81,7 +81,9 @@ class FirestoreService {
     try {
       await _db.collection(_collectionPath).doc(uid).delete();
     } catch (e) {
-      print('🔥 Firestore Delete Error: $e');
+      if (kDebugMode) {
+        print('🔥 Firestore Delete Error: $e');
+      }
     }
   }
 }

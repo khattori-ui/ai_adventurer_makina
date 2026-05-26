@@ -32,8 +32,9 @@ class QuestListScreen extends StatelessWidget {
                               provider.makina, isCleared);
                           double reduction = 1.0;
                           for (var buff in provider.makina.activeBuffs) {
-                            if (!buff.isExpired && buff.timeReductionRate > 0)
+                            if (!buff.isExpired && buff.timeReductionRate > 0) {
                               reduction = 1.0 - buff.timeReductionRate;
+                            }
                           }
                           final actualDuration =
                               (quest.durationMinutes * reduction).toInt();

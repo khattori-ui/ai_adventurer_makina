@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
+import '../models/makina.dart';
 
 class ReincarnationScreen extends StatelessWidget {
   const ReincarnationScreen({super.key});
@@ -97,7 +98,7 @@ class ReincarnationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCurrentStatusCard(makina) {
+  Widget _buildCurrentStatusCard(Makina makina) {
     return Card(
       elevation: 4,
       child: Padding(
@@ -245,7 +246,7 @@ class ReincarnationScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildReincarnationHistory(makina) {
+  Widget _buildReincarnationHistory(Makina makina) {
     return Card(
       elevation: 4,
       child: Padding(
