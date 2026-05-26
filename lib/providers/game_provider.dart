@@ -388,7 +388,9 @@ class GameProvider extends ChangeNotifier {
         await _saveMakina();
         notifyListeners();
       }
-    } catch (e) {}
+    } catch (e) {
+      debugPrint('Achievement unlock error: $e');
+    }
   }
 
   void clearMessage() {
