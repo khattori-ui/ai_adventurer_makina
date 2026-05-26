@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/makina.dart';
 
@@ -52,6 +53,24 @@ class FirestoreService {
         print('🔥 Firestore Save Error: $e');
       }
       rethrow; // エラー処理は呼び出し元（Providerなど）に任せる
+    }
+  }
+
+  /// ---------------------------------------------------------
+  /// 🚩 不適切コンテンツの通報 (Report)
+  /// ---------------------------------------------------------
+  static Future<void> saveReport(String reportedText) async {
+    final user = FirebaseAuth.instance.currentUser;
+    try {
+      await _db.collection('reports').add({
+        'reporterUid': user?.uid ?? 'anonymous',
+        'reportedText': reportedText,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      if (kDebugMode) print('🚩 Report saved: $reportedText');
+    } catch (e) {
+      if (kDebugMode) print('🚩 Report Save Error: $e');
+      rethrow;
     }
   }
 
