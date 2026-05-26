@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_provider.dart';
+import '../services/firestore_service.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({super.key});
@@ -143,10 +144,11 @@ class _ConversationScreenState extends State<ConversationScreen> {
                           (index == _messages.length - 1 && !message.isPlayer);
 
                       if (isLastAI && _isTyping) {
-                        return _buildMessageBubble(_typingText, false);
+                        return _buildMessageBubble(_typingText, false,
+                            canReport: false);
                       }
-                      return _buildMessageBubble(
-                          message.text, message.isPlayer);
+                      return _buildMessageBubble(message.text, message.isPlayer,
+                          canReport: !message.isPlayer);
                     },
                   ),
                 ),
@@ -161,26 +163,95 @@ class _ConversationScreenState extends State<ConversationScreen> {
     );
   }
 
-  Widget _buildMessageBubble(String text, bool isPlayer) {
-    return Align(
-      alignment: isPlayer ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isPlayer
-              ? Colors.deepPurple.withValues(alpha: 0.9)
-              : Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-              color: isPlayer ? Colors.white : Colors.black87, fontSize: 16),
-        ),
+  Widget _buildMessageBubble(String text, bool isPlayer,
+      {bool canReport = false}) {
+    final bubble = Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isPlayer
+            ? Colors.deepPurple.withValues(alpha: 0.9)
+            : Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+            color: isPlayer ? Colors.white : Colors.black87, fontSize: 16),
       ),
     );
+
+    if (isPlayer) {
+      return Align(alignment: Alignment.centerRight, child: bubble);
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(child: bubble),
+          if (canReport)
+            Tooltip(
+              message: '不適切な発言を報告',
+              child: IconButton(
+                icon: const Icon(Icons.flag_outlined, size: 18),
+                color: Colors.grey.shade400,
+                splashRadius: 18,
+                onPressed: () => _showReportDialog(text),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showReportDialog(String reportedText) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('発言を報告'),
+        content: const Text('この発言を不適切として報告しますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('報告する'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await FirestoreService.saveReport(reportedText);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('報告を送信しました。ご協力ありがとうございます'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('通報エラー: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('送信に失敗しました'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   // ★ 復活させたサジェストボタンのコード
