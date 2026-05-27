@@ -10,6 +10,10 @@ class FirestoreService {
   // Firestoreのインスタンス（シングルトン的なアクセス）
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
+  // 共有設定のドキュメント
+  static final DocumentReference<Map<String, dynamic>> _aiSettingDoc =
+      _db.collection('system_settings').doc('ai');
+
   /// ---------------------------------------------------------
   /// 📥 データの読み込み (Load)
   /// ---------------------------------------------------------
@@ -72,6 +76,50 @@ class FirestoreService {
       if (kDebugMode) print('🚩 Report Save Error: $e');
       rethrow;
     }
+  }
+
+  /// ---------------------------------------------------------
+  /// 🛡️ 管理者判定 (Admin)
+  /// ---------------------------------------------------------
+  static Future<bool> isAdmin(String uid) async {
+    try {
+      final doc = await _db.collection('admins').doc(uid).get();
+      return doc.exists;
+    } catch (e) {
+      if (kDebugMode) print('🛡️ Admin check error: $e');
+      return false;
+    }
+  }
+
+  /// ---------------------------------------------------------
+  /// ⚙️ 共有AI設定 (system_settings/ai)
+  /// ---------------------------------------------------------
+  static Stream<String?> watchSystemAiProvider() {
+    return _aiSettingDoc.snapshots().map((snap) {
+      final data = snap.data();
+      final v = data?['aiProvider'];
+      return v is String ? v : null;
+    });
+  }
+
+  static Future<String?> getSystemAiProvider() async {
+    try {
+      final snap = await _aiSettingDoc.get();
+      final v = snap.data()?['aiProvider'];
+      return v is String ? v : null;
+    } catch (e) {
+      if (kDebugMode) print('⚙️ Get aiProvider error: $e');
+      return null;
+    }
+  }
+
+  static Future<void> setSystemAiProvider(String aiProvider) async {
+    final user = FirebaseAuth.instance.currentUser;
+    await _aiSettingDoc.set({
+      'aiProvider': aiProvider,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedBy': user?.uid,
+    }, SetOptions(merge: true));
   }
 
   /// ---------------------------------------------------------
