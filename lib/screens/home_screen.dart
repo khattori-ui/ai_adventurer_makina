@@ -9,6 +9,7 @@ import 'achievement_screen.dart';
 import 'debug_item_screen.dart';
 import 'debug_time_estimator_screen.dart';
 import 'debug_stats_screen.dart';
+import 'admin_system_screen.dart';
 import 'reincarnation_screen.dart';
 import 'active_buff_screen.dart';
 import 'costume_screen.dart';
@@ -77,6 +78,18 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         backgroundColor: Colors.deepPurple,
         actions: [
+          Consumer<GameProvider>(builder: (context, provider, _) {
+            if (!provider.isAdmin) return const SizedBox.shrink();
+            return IconButton(
+              icon: const Icon(Icons.admin_panel_settings,
+                  color: Colors.white),
+              tooltip: 'システム管理（管理者専用）',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminSystemScreen()),
+              ),
+            );
+          }),
           IconButton(
             icon: const Icon(Icons.timer_outlined, color: Colors.cyanAccent),
             tooltip: 'プレイ時間シミュレーター',

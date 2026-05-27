@@ -27,6 +27,7 @@ jobs:
         run: |
           cat > .env << 'EOF'
           GEMINI_API_KEY=ci_dummy_key
+          ANTHROPIC_API_KEY=ci_dummy_key
           SAVE_DATA_SECRET_KEY=ci_dummy_secret_key_for_testing
           EOF
 
