@@ -30,11 +30,14 @@ class GameProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _currentMessage;
   Timer? _questTimer;
+  StreamSubscription<String?>? _aiProviderSub;
   Equipment? _droppedEquipment;
   List<Achievement> _achievements = [];
   Achievement? _newlyUnlockedAchievement;
   bool _hasRankedUp = false;
   QuestResult? _questResult;
+  AiProvider _aiProvider = AiProvider.gemini;
+  bool _isAdmin = false;
 
   static const int maxDailyConversations = 50;
 
@@ -50,6 +53,8 @@ class GameProvider extends ChangeNotifier {
   bool get hasRankedUp => _hasRankedUp;
   QuestResult? get questResult => _questResult;
   List<String> get clearedQuestIds => _makina.clearedQuestIds;
+  AiProvider get aiProvider => _aiProvider;
+  bool get isAdmin => _isAdmin;
 
   int get remainingConversations =>
       maxDailyConversations - _makina.dailyConversationCount;
@@ -121,12 +126,54 @@ class GameProvider extends ChangeNotifier {
       if (_makina.currentQuest != null && _makina.questStartTime != null) {
         _startQuestTimer();
       }
+
+      // 4. 共有AI設定と管理者判定
+      await _setupAdminAndAiProvider();
     } catch (e) {
       debugPrint("初期化エラー: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _setupAdminAndAiProvider() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    _isAdmin = await FirestoreService.isAdmin(user.uid);
+
+    final initial = await FirestoreService.getSystemAiProvider();
+    _aiProvider = _parseAiProvider(initial) ?? AiProvider.gemini;
+
+    await _aiProviderSub?.cancel();
+    _aiProviderSub = FirestoreService.watchSystemAiProvider().listen((v) {
+      final parsed = _parseAiProvider(v);
+      if (parsed != null && parsed != _aiProvider) {
+        _aiProvider = parsed;
+        notifyListeners();
+      }
+    });
+  }
+
+  AiProvider? _parseAiProvider(String? v) {
+    if (v == null) return null;
+    switch (v) {
+      case 'gemini':
+        return AiProvider.gemini;
+      case 'haiku':
+        return AiProvider.haiku;
+      default:
+        return null;
+    }
+  }
+
+  Future<void> setSystemAiProvider(AiProvider provider) async {
+    if (!_isAdmin) return;
+    await FirestoreService.setSystemAiProvider(
+        provider == AiProvider.gemini ? 'gemini' : 'haiku');
+    _aiProvider = provider;
+    notifyListeners();
   }
 
   // ■■■ セーブロジックの修正 ■■■
@@ -281,7 +328,7 @@ class GameProvider extends ChangeNotifier {
       // AIレポート（失敗してもデフォルト文言で続行）
       try {
         report = await AIService.generateQuestReport(
-            makina: _makina, quest: quest, success: success);
+            makina: _makina, quest: quest, success: success, provider: _aiProvider);
       } catch (e) {
         debugPrint('AIレポート生成エラー: $e');
         report = success
@@ -333,7 +380,8 @@ class GameProvider extends ChangeNotifier {
           makina: _makina,
           playerMessage: msg,
           lastQuest: null,
-          lastQuestSuccess: null);
+          lastQuestSuccess: null,
+          provider: _aiProvider);
       _makina.changeIntimacy((res['intimacyChange'] ?? 0.0).toDouble());
       _makina.applyPersonalityChange((res['braveChange'] ?? 0.0).toDouble(),
           (res['dependentChange'] ?? 0.0).toDouble());
@@ -561,6 +609,7 @@ class GameProvider extends ChangeNotifier {
   @override
   void dispose() {
     _questTimer?.cancel();
+    _aiProviderSub?.cancel();
     super.dispose();
   }
 }
