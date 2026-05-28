@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import '../models/makina.dart';
 
 enum AiProvider { gemini, haiku }
@@ -10,16 +12,61 @@ enum AiProvider { gemini, haiku }
 class AIService {
   static String get _geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
   static String get _anthropicApiKey => dotenv.env['ANTHROPIC_API_KEY'] ?? '';
-
-  static const String _geminiModel = 'gemini-1.5-flash';
+  static String get _geminiModel => dotenv.env['GEMINI_MODEL'] ?? 'gemini-2.0-flash';
   static const String _haikuModel = 'claude-3-5-haiku-20241022';
-
-  static String _geminiUrl(String apiKey) =>
-      'https://generativelanguage.googleapis.com/v1beta/models/$_geminiModel:generateContent?key=$apiKey';
   static const String _anthropicUrl = 'https://api.anthropic.com/v1/messages';
 
   static bool _isPlaceholder(String apiKey) =>
       apiKey.isEmpty || apiKey.contains('貼り付けてください');
+
+  static String _sanitizeAiText(String raw) {
+    var text = raw.trim();
+    text = text.replaceAll('\r\n', '\n');
+    text = text.replaceAll(RegExp(r'[ \t]+\n'), '\n');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    text = text.replaceAll(RegExp(r'^[\u200B-\u200D\uFEFF]+'), '');
+    text = text.replaceAll(RegExp(r'（\d+文字）'), '');
+    text = text.replaceAll(RegExp(r'\(\d+文字\)'), '');
+
+    // 返答末尾に混ざる不完全な断片を除去
+    final lines = text
+        .split('\n')
+        .map((line) => line.trimRight())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    while (lines.isNotEmpty) {
+      final last = lines.last;
+      final looksBroken = last.length <= 8 &&
+          (last.endsWith('マキ') ||
+              last.endsWith('ですけ') ||
+              last.endsWith('ますね') ||
+              !RegExp(r'[。！？]$').hasMatch(last));
+      if (!looksBroken) break;
+      lines.removeLast();
+    }
+    if (lines.isEmpty) return raw.trim();
+    return lines.join('\n').trim();
+  }
+
+  static String _friendlyErrorMessage(Object e) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('socketexception')) {
+      return 'マキナ：電波の精霊さんがいないみたい。場所を変えて、もう一度あたしを呼んでみて！';
+    }
+    if (s.contains('timeout') || s.contains('timed out')) {
+      return 'マキナ：ちょっと考え込みすぎちゃった。もう一回、ゆっくり話しかけてみて！';
+    }
+    if (s.contains('api key') || s.contains('permission') || s.contains('unauthorized')) {
+      return 'マキナ：師匠、なんだか「魔法のつながり」が悪いみたい…。ギルドの運営さんが直してくれるのを待ってみよう！';
+    }
+    if (s.contains('429') || s.contains('quota') || s.contains('rate')) {
+      return 'マキナ：ごめん、魔力を使いすぎちゃって疲れちゃったみたい…。少し休ませてくれたら、また元気になるから待っててね！';
+    }
+    if (s.contains('404') || s.contains('not_found') || s.contains('model')) {
+      return 'マキナ：いま使える魔法の型を調整中みたい…。少ししたらもう一度話しかけてみて！';
+    }
+    return 'マキナ：うう、頭の中がこんがらがっちゃった…。少し時間をおいてから、また話しかけてね。';
+  }
 
   static Future<String> _callGeminiAPI(String prompt) async {
     final apiKey = _geminiApiKey;
@@ -28,65 +75,30 @@ class AIService {
     }
 
     try {
-      final response = await http
-          .post(
-            Uri.parse(_geminiUrl(apiKey)),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'contents': [
-                {
-                  'parts': [
-                    {'text': prompt}
-                  ]
-                }
-              ],
-              'generationConfig': {
-                'maxOutputTokens': 500,
-                'temperature': 0.9,
-              },
-            }),
-          )
+      final model = GenerativeModel(
+        model: _geminiModel,
+        apiKey: apiKey,
+        generationConfig:
+            GenerationConfig(maxOutputTokens: 220, temperature: 0.7),
+      );
+      final response = await model
+          .generateContent([Content.text(prompt)])
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () => throw TimeoutException('通信が途切れちゃった'),
           );
-
-      switch (response.statusCode) {
-        case 200:
-          final data = jsonDecode(response.body);
-          final candidates = data['candidates'];
-          if (candidates is List &&
-              candidates.isNotEmpty &&
-              candidates[0]['content']?['parts'] is List &&
-              (candidates[0]['content']['parts'] as List).isNotEmpty) {
-            return candidates[0]['content']['parts'][0]['text'] as String;
-          }
-          return 'マキナ：（うまく言葉が出てこない…）';
-
-        case 400:
-          return 'マキナ：なんだか言葉がうまくまとまらないみたい……もう一度話しかけてみて？';
-
-        case 401:
-        case 403:
-          return 'マキナ：師匠、なんだか「魔法のつながり」が悪いみたい…。ギルドの運営さんが直してくれるのを待ってみよう！';
-
-        case 429:
-          return 'マキナ：ごめん、魔力を使いすぎちゃって疲れちゃったみたい…。少し休ませてくれたら、また元気になるから待っててね！';
-
-        case 500:
-        case 502:
-        case 503:
-          return 'マキナ：ううっ、世界の理（サーバー）が荒れているみたい…。こればっかりは仕方ないから、落ち着くまで待とう？';
-
-        default:
-          return 'マキナ：なんだか不思議な力が働いて、うまく話せないよ…。';
+      final text = response.text;
+      if (text != null && text.trim().isNotEmpty) {
+        return _sanitizeAiText(text);
       }
+      return 'マキナ：（うまく言葉が出てこない…）';
     } on SocketException {
       return 'マキナ：電波の精霊さんがいないみたい。場所を変えて、もう一度あたしを呼んでみて！';
     } on TimeoutException {
       return 'マキナ：ちょっと考え込みすぎちゃった。もう一回、ゆっくり話しかけてみて！';
     } catch (e) {
-      return 'マキナ：うう、頭の中がこんがらがっちゃった…。少し時間をおいてから、また話しかけてね。';
+      if (kDebugMode) debugPrint('Gemini API error: $e');
+      return _friendlyErrorMessage(e);
     }
   }
 
@@ -126,7 +138,9 @@ class AIService {
               content.isNotEmpty &&
               content[0] is Map &&
               (content[0] as Map).containsKey('text')) {
-            return (content[0]['text'] as String?) ?? 'マキナ：（うまく言葉が出てこない…）';
+            final text =
+                (content[0]['text'] as String?) ?? 'マキナ：（うまく言葉が出てこない…）';
+            return _sanitizeAiText(text);
           }
           return 'マキナ：（うまく言葉が出てこない…）';
 
@@ -150,7 +164,8 @@ class AIService {
     } on TimeoutException {
       return 'マキナ：ちょっと考え込みすぎちゃった。もう一回、ゆっくり話しかけてみて！';
     } catch (e) {
-      return 'マキナ：うう、頭の中がこんがらがっちゃった…。少し時間をおいてから、また話しかけてね。';
+      if (kDebugMode) debugPrint('Haiku API error: $e');
+      return _friendlyErrorMessage(e);
     }
   }
 
@@ -170,7 +185,16 @@ class AIService {
       required bool success,
       AiProvider provider = AiProvider.gemini}) async {
     return await _callAI(
-        "マキナとして、${quest.name}の結果が${success ? '成功' : '失敗'}したことを報告して。",
+        """
+あなたはRPG世界の少女「マキナ」です。明るく素直で、プレイヤーを「マスター」と呼びます。
+次の条件で、クエスト報告を自然な日本語で1〜3文で返してください。
+- 口調は親しみやすく、前向き
+- 不自然な造語や途中で切れた文を出さない
+- 120文字以内
+
+クエスト名: ${quest.name}
+結果: ${success ? '成功' : '失敗'}
+""",
         provider);
   }
 
@@ -181,8 +205,24 @@ class AIService {
       required Quest? lastQuest,
       required bool? lastQuestSuccess,
       AiProvider provider = AiProvider.gemini}) async {
-    String response =
-        await _callAI("マキナとして次のメッセージに応答して：$playerMessage", provider);
+    final lastQuestText = lastQuest == null
+        ? 'なし'
+        : '${lastQuest.name}（${lastQuestSuccess == true ? '成功' : '失敗'}）';
+    final prompt = """
+あなたはRPG世界の少女「マキナ」です。明るく素直で、プレイヤーを「マスター」と呼びます。
+以下のルールで、プレイヤーの発言に自然な日本語で返答してください。
+- 1〜3文、120文字以内
+- 丁寧すぎず親しみやすい口調
+- 途中で切れた文・不自然な語尾・文字化け風の文を出さない
+- プレイヤー発言に短く具体的に反応する
+
+参考情報:
+- 親密度: ${makina.intimacy.toStringAsFixed(1)}
+- 直近クエスト: $lastQuestText
+
+プレイヤー発言: $playerMessage
+""";
+    String response = await _callAI(prompt, provider);
     return {
       'response': response,
       'intimacyChange': 1.0,
