@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// Firebase Console → Firestore → ルール に貼り付けて公開してください。
+// 通報(reports)は管理者のみ閲覧可。会話メモリはアプリ側で暗号化して users に保存。
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ユーザーセーブ（本人のみ読み書き）
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // 通報: 本人が作成、閲覧は管理者のみ（本文は平文・運営確認用）
+    match /reports/{reportId} {
+      allow create: if isSignedIn()
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.reportedText is string
+        && request.resource.data.reportedText.size() > 0
+        && request.resource.data.reportedText.size() <= 2000;
+
+      allow read, update, delete: if isAdmin();
+    }
+
+    // 管理者UID一覧（本人の存在確認のみ）
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && request.auth.uid == adminId;
+      allow write: if false;
+    }
+
+    // 全ユーザー共有のAI設定（読取はログイン済み、書込は管理者のみ）
+    match /system_settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}
