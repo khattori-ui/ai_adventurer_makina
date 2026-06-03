@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/makina.dart';
-import 'encryption_service.dart'; // 👈 ステップ1で作ったファイルを読み込む
+import 'encryption_service.dart';
+import 'user_data_crypto.dart';
 
 class StorageService {
   static const String _makinaKey = 'makina_data';
@@ -11,7 +12,7 @@ class StorageService {
   // マキナのデータを保存する
   static Future<void> saveMakina(Makina makina) async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = jsonEncode(makina.toJson());
+    final jsonString = jsonEncode(UserDataCrypto.encodeForStorage(makina));
 
     // 🛡️ 保存する直前に「指紋」を作成
     final hash = EncryptionService.generateHash(jsonString);
@@ -39,8 +40,8 @@ class StorageService {
     }
 
     try {
-      final json = jsonDecode(jsonString);
-      return Makina.fromJson(json);
+      final json = jsonDecode(jsonString) as Map<String, dynamic>;
+      return Makina.fromJson(UserDataCrypto.decodeFromStorage(json));
     } catch (e) {
       if (kDebugMode) print('Error loading Makina data: $e');
       return null;

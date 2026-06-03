@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/makina.dart';
+import 'user_data_crypto.dart';
 
 class FirestoreService {
   // コレクション名の定義
@@ -24,7 +25,8 @@ class FirestoreService {
 
       if (snapshot.exists && snapshot.data() != null) {
         // FirestoreのデータをMakinaオブジェクトに変換
-        return Makina.fromJson(snapshot.data()!);
+        return Makina.fromJson(
+            UserDataCrypto.decodeFromStorage(snapshot.data()!));
       } else {
         // データがない場合はnullを返す（新規ユーザーなど）
         return null;
@@ -45,9 +47,12 @@ class FirestoreService {
     try {
       final docRef = _db.collection(_collectionPath).doc(makina.uid);
 
-      // toJson()を使ってMap形式に変換し、保存
-      // SetOptions(merge: true) にすることで、フィールドが増えても既存データを壊しにくい
-      await docRef.set(makina.toJson(), SetOptions(merge: true));
+      final data = UserDataCrypto.encodeForStorage(makina);
+      // 暗号化移行後は平文 recentMemories を残さない
+      if (data.containsKey('recentMemoriesEnc')) {
+        data['recentMemories'] = FieldValue.delete();
+      }
+      await docRef.set(data, SetOptions(merge: true));
 
       if (kDebugMode) {
         print('🔥 Firestore Save Success: ${makina.uid}');
