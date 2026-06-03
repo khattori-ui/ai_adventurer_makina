@@ -91,6 +91,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<GameProvider>(context);
     final m = provider.makina;
+    final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
     String imagePath = 'assets/images/makina.png';
     if (m.currentOutfitId != null && m.currentOutfitId != 'default') {
@@ -110,55 +111,58 @@ class _ConversationScreenState extends State<ConversationScreen> {
           },
         ),
       ),
-      body: Stack(
-        children: [
-          // 1. 背景としてのマキナ画像
-          Positioned(
-            bottom: 80,
-            right: -20,
-            child: Opacity(
-              opacity: 0.5,
-              child: Image.asset(
-                imagePath,
-                height: MediaQuery.of(context).size.height * 0.6,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.person, size: 200, color: Colors.grey),
-              ),
-            ),
-          ),
-
-          // 2. メインレイアウト
-          Column(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: _skipTyping,
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, index) {
-                      final message = _messages[index];
-                      final isLastAI =
-                          (index == _messages.length - 1 && !message.isPlayer);
-
-                      if (isLastAI && _isTyping) {
-                        return _buildMessageBubble(_typingText, false,
-                            canReport: false);
-                      }
-                      return _buildMessageBubble(message.text, message.isPlayer,
-                          canReport: !message.isPlayer);
-                    },
-                  ),
+      body: SafeArea(
+        bottom: true,
+        child: Stack(
+          children: [
+            // 1. 背景としてのマキナ画像
+            Positioned(
+              bottom: 80,
+              right: -20,
+              child: Opacity(
+                opacity: 0.5,
+                child: Image.asset(
+                  imagePath,
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.person, size: 200, color: Colors.grey),
                 ),
               ),
-              // ★ ここに応答用ボタンを復活させました
-              _buildSuggestionButtons(),
-              _buildInputArea(),
-            ],
-          ),
-        ],
+            ),
+
+            // 2. メインレイアウト
+            Column(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _skipTyping,
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        final isLastAI =
+                            (index == _messages.length - 1 && !message.isPlayer);
+
+                        if (isLastAI && _isTyping) {
+                          return _buildMessageBubble(_typingText, false,
+                              canReport: false);
+                        }
+                        return _buildMessageBubble(message.text, message.isPlayer,
+                            canReport: !message.isPlayer);
+                      },
+                    ),
+                  ),
+                ),
+                // キーボード表示中は縦幅を確保するためサジェストを隠す
+                if (!keyboardVisible) _buildSuggestionButtons(),
+                _buildInputArea(),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

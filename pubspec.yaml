@@ -35,6 +35,7 @@ dependencies:
 
   # UI関連
   cupertino_icons: ^1.0.2
+  google_generative_ai: ^0.4.7
   encrypt: ^5.0.3
 
 dev_dependencies:
