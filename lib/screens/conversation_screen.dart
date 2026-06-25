@@ -12,15 +12,12 @@ class ConversationScreen extends StatefulWidget {
 
 class _ConversationScreenState extends State<ConversationScreen> {
   final TextEditingController _messageController = TextEditingController();
+  final FocusNode _inputFocusNode = FocusNode();
   final List<ChatMessage> _messages = [];
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey<_TypingMessageBubbleState> _typingBubbleKey = GlobalKey();
   bool _isProcessing = false;
-
-  // タイピング演出用の状態
-  String _typingText = '';
-  String _fullText = '';
   bool _isTyping = false;
-  int _currentCharIndex = 0;
 
   @override
   void initState() {
@@ -39,57 +36,39 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   void dispose() {
     _messageController.dispose();
+    _inputFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // --- タイピング演出ロジック ---
-  void _startTypingAnimation(String text) {
-    setState(() {
-      _fullText = text;
-      _typingText = '';
-      _currentCharIndex = 0;
-      _isTyping = true;
-    });
-    _typeNextCharacter();
+  void _onTypingFinished() {
+    if (!mounted) return;
+    setState(() => _isTyping = false);
   }
 
-  void _typeNextCharacter() {
-    if (!_isTyping || !mounted) return;
-    if (_currentCharIndex < _fullText.length) {
-      setState(() {
-        _typingText = _fullText.substring(0, _currentCharIndex + 1);
-        _currentCharIndex++;
-      });
-      Future.delayed(
-          const Duration(milliseconds: 40), () => _typeNextCharacter());
-      _scrollToBottom();
-    } else {
-      setState(() => _isTyping = false);
-    }
+  void _startTypingAnimation(String text) {
+    setState(() => _isTyping = true);
+    _scrollToBottom();
   }
 
   void _skipTyping() {
-    if (_isTyping) {
-      setState(() {
-        _typingText = _fullText;
-        _currentCharIndex = _fullText.length;
-        _isTyping = false;
-      });
-    }
+    _typingBubbleKey.currentState?.skip();
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      if (!_scrollController.hasClients) return;
+      final max = _scrollController.position.maxScrollExtent;
+      if ((_scrollController.offset - max).abs() > 4) {
+        _scrollController.jumpTo(max);
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<GameProvider>(context);
+    // listen: true だと GameProvider の更新のたびに TextField が再ビルドされキーボードが閉じる
+    final provider = Provider.of<GameProvider>(context, listen: false);
     final m = provider.makina;
     final keyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
 
@@ -139,6 +118,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     onTap: _skipTyping,
                     child: ListView.builder(
                       controller: _scrollController,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.manual,
                       padding: const EdgeInsets.all(16),
                       itemCount: _messages.length,
                       itemBuilder: (context, index) {
@@ -147,8 +128,17 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             (index == _messages.length - 1 && !message.isPlayer);
 
                         if (isLastAI && _isTyping) {
-                          return _buildMessageBubble(_typingText, false,
-                              canReport: false);
+                          return _TypingMessageBubble(
+                            key: _typingBubbleKey,
+                            fullText: message.text,
+                            onScroll: _scrollToBottom,
+                            onFinished: _onTypingFinished,
+                            bubbleBuilder: (text) => _buildMessageBubble(
+                              text,
+                              false,
+                              canReport: false,
+                            ),
+                          );
                         }
                         return _buildMessageBubble(message.text, message.isPlayer,
                             canReport: !message.isPlayer);
@@ -156,9 +146,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     ),
                   ),
                 ),
-                // キーボード表示中は縦幅を確保するためサジェストを隠す
-                if (!keyboardVisible) _buildSuggestionButtons(),
-                _buildInputArea(),
+                // キーボード表示中は見えなくするが高さは維持（消すと TextField が再ビルドされキーボードが閉じる）
+                Visibility(
+                  visible: !keyboardVisible,
+                  maintainState: true,
+                  maintainAnimation: true,
+                  maintainSize: true,
+                  child: _buildSuggestionButtons(),
+                ),
+                _ConversationInputBar(
+                  focusNode: _inputFocusNode,
+                  controller: _messageController,
+                  isProcessing: _isProcessing,
+                  isTyping: _isTyping,
+                  onSend: _sendMessage,
+                ),
               ],
             ),
           ],
@@ -298,38 +300,6 @@ class _ConversationScreenState extends State<ConversationScreen> {
     );
   }
 
-  Widget _buildInputArea() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              decoration: const InputDecoration(
-                  hintText: 'メッセージを入力...', border: OutlineInputBorder()),
-              enabled: !_isProcessing && !_isTyping,
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: (_isProcessing || _isTyping)
-                ? null
-                : () => _sendMessage(_messageController.text),
-            icon: _isProcessing
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.send),
-            color: Colors.deepPurple,
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
     setState(() {
@@ -337,6 +307,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
       _isProcessing = true;
     });
     _messageController.clear();
+    _inputFocusNode.unfocus();
     _scrollToBottom();
 
     try {
@@ -360,4 +331,126 @@ class ChatMessage {
   final String text;
   final bool isPlayer;
   ChatMessage({required this.text, required this.isPlayer});
+}
+
+/// 親の setState やキーボード表示の影響を受けず入力欄だけを維持する
+class _ConversationInputBar extends StatelessWidget {
+  final FocusNode focusNode;
+  final TextEditingController controller;
+  final bool isProcessing;
+  final bool isTyping;
+  final ValueChanged<String> onSend;
+
+  const _ConversationInputBar({
+    required this.focusNode,
+    required this.controller,
+    required this.isProcessing,
+    required this.isTyping,
+    required this.onSend,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Colors.white,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              focusNode: focusNode,
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: 'メッセージを入力...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: (isProcessing || isTyping)
+                ? null
+                : () => onSend(controller.text),
+            icon: isProcessing
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.send),
+            color: Colors.deepPurple,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// タイピング演出だけを再ビルドし、親の TextField に影響させない
+class _TypingMessageBubble extends StatefulWidget {
+  final String fullText;
+  final VoidCallback onScroll;
+  final VoidCallback onFinished;
+  final Widget Function(String text) bubbleBuilder;
+
+  const _TypingMessageBubble({
+    super.key,
+    required this.fullText,
+    required this.onScroll,
+    required this.onFinished,
+    required this.bubbleBuilder,
+  });
+
+  @override
+  State<_TypingMessageBubble> createState() => _TypingMessageBubbleState();
+}
+
+class _TypingMessageBubbleState extends State<_TypingMessageBubble> {
+  String _typingText = '';
+  int _currentCharIndex = 0;
+  bool _isTyping = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _typeNextCharacter();
+  }
+
+  void _typeNextCharacter() {
+    if (!_isTyping || !mounted) return;
+    if (_currentCharIndex < widget.fullText.length) {
+      setState(() {
+        _typingText =
+            widget.fullText.substring(0, _currentCharIndex + 1);
+        _currentCharIndex++;
+      });
+      // 毎文字スクロールすると Android でキーボードが閉じることがある
+      if (_currentCharIndex == 1 || _currentCharIndex == widget.fullText.length) {
+        widget.onScroll();
+      }
+      Future.delayed(
+          const Duration(milliseconds: 40), () => _typeNextCharacter());
+    } else {
+      setState(() => _isTyping = false);
+      widget.onFinished();
+    }
+  }
+
+  void skip() {
+    if (!_isTyping) return;
+    setState(() {
+      _typingText = widget.fullText;
+      _currentCharIndex = widget.fullText.length;
+      _isTyping = false;
+    });
+    widget.onFinished();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: skip,
+      child: widget.bubbleBuilder(_typingText),
+    );
+  }
 }
