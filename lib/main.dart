@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // 👈 これが必要
 import 'firebase_options.dart';
 import 'providers/game_provider.dart';
-import 'screens/title_screen.dart';
+import 'features/title/title_screen.dart';
 
 void main() async {
   // 1. Flutterの準備

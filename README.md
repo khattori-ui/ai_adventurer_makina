@@ -160,6 +160,21 @@ flutter run -d <デバイスID>
 
 ---
 
+## プロジェクト構成
+
+```
+lib/
+  features/          … 機能ごとの画面（会話・クエスト・ショップなど）
+  core/              … 全機能で共有（AI・暗号化・Firestore・ローカル保存）
+  shared/            … モデル・マスターデータ
+  providers/         … ゲーム全体の状態（GameProvider）
+  main.dart          … 起動処理
+```
+
+新機能を追加するときは `lib/features/機能名/` に置きます。
+
+---
+
 ## 開発の流れ
 
 本リポジトリは **main + feature ブランチ + PR** で開発します。`main` には直接 push しません。

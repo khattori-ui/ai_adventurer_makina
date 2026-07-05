@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import '../models/makina.dart';
-import 'user_data_crypto.dart';
+import '../../shared/models/makina.dart';
+import '../crypto/user_data_crypto.dart';
 
 class FirestoreService {
   // コレクション名の定義

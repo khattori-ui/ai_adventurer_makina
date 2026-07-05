@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../providers/game_provider.dart';
-import '../services/ai_service.dart';
+import '../../providers/game_provider.dart';
+import '../../core/ai/ai_service.dart';
 
 class AdminSystemScreen extends StatelessWidget {
   const AdminSystemScreen({super.key});

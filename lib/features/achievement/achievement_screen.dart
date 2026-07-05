@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
-import '../data/achievement_data.dart';
+import '../../providers/game_provider.dart';
+import '../../shared/data/achievement_data.dart';
 import 'package:intl/intl.dart';
 
 class AchievementScreen extends StatelessWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
-import '../services/firestore_service.dart';
+import '../../providers/game_provider.dart';
+import '../../core/firebase/firestore_service.dart';
 
 class ConversationScreen extends StatefulWidget {
   const ConversationScreen({super.key});

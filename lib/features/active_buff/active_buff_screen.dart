@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../providers/game_provider.dart';
-import '../models/item.dart';
+import '../../providers/game_provider.dart';
+import '../../shared/models/item.dart';
 
 class ActiveBuffScreen extends StatelessWidget {
   const ActiveBuffScreen({super.key});

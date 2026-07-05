@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../data/story_data.dart';
+import '../../shared/data/story_data.dart';
 
 class StoryScreen extends StatefulWidget {
   final List<StoryScene> scenes;

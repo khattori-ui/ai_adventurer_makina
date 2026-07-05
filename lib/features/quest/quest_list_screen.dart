@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
-import '../models/makina.dart';
-import '../data/quest_data.dart';
+import '../../providers/game_provider.dart';
+import '../../shared/models/makina.dart';
+import '../../shared/data/quest_data.dart';
 
 class QuestListScreen extends StatelessWidget {
   const QuestListScreen({super.key});
