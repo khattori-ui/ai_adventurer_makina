@@ -164,10 +164,10 @@ flutter run -d <デバイスID>
 
 ```
 lib/
-  features/          … 機能ごとの画面（会話・クエスト・ショップなど）
-  core/              … 全機能で共有（AI・暗号化・Firestore・ローカル保存）
+  features/          … 機能ごとの画面＋ロジック（会話・クエスト・ショップなど）
+  core/              … 全機能で共有（AI・暗号化・Firestore・セーブ・GameSession）
   shared/            … モデル・マスターデータ
-  providers/         … ゲーム全体の状態（GameProvider）
+  providers/         … GameProvider（画面向けの窓口）
   main.dart          … 起動処理
 ```
 
