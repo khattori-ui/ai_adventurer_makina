@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // 認証用
-import '../models/makina.dart';
-import '../models/item.dart';
-import '../services/storage_service.dart'; // ローカル保存
-import '../services/firestore_service.dart'; // クラウド保存 (New!)
-import '../services/ai_service.dart';
-import '../data/quest_data.dart';
-import '../data/achievement_data.dart';
+import '../shared/models/makina.dart';
+import '../shared/models/item.dart';
+import '../core/storage/storage_service.dart';
+import '../core/firebase/firestore_service.dart';
+import '../core/ai/ai_service.dart';
+import '../shared/data/quest_data.dart';
+import '../shared/data/achievement_data.dart';
 
 class QuestResult {
   final bool isSuccess;

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
-import '../models/makina.dart';
+import '../../providers/game_provider.dart';
+import '../../shared/models/makina.dart';
 
 class EquipmentScreen extends StatelessWidget {
   const EquipmentScreen({super.key});

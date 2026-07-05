@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
-import '../data/quest_data.dart';
-import 'quest_list_screen.dart';
-import 'conversation_screen.dart';
-import 'equipment_screen.dart';
-import 'achievement_screen.dart';
-import 'debug_item_screen.dart';
-import 'debug_time_estimator_screen.dart';
-import 'debug_stats_screen.dart';
-import 'admin_system_screen.dart';
-import 'reincarnation_screen.dart';
-import 'active_buff_screen.dart';
-import 'costume_screen.dart';
-import 'collection_screen.dart';
-import 'shop_screen.dart';
+import '../../providers/game_provider.dart';
+import '../../shared/data/quest_data.dart';
+import '../quest/quest_list_screen.dart';
+import '../conversation/conversation_screen.dart';
+import '../equipment/equipment_screen.dart';
+import '../achievement/achievement_screen.dart';
+import '../debug/debug_item_screen.dart';
+import '../debug/debug_time_estimator_screen.dart';
+import '../debug/debug_stats_screen.dart';
+import '../admin/admin_system_screen.dart';
+import '../reincarnation/reincarnation_screen.dart';
+import '../active_buff/active_buff_screen.dart';
+import '../costume/costume_screen.dart';
+import '../collection/collection_screen.dart';
+import '../shop/shop_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/makina.dart';
-import 'encryption_service.dart';
-import 'user_data_crypto.dart';
+import '../../shared/models/makina.dart';
+import '../crypto/encryption_service.dart';
+import '../crypto/user_data_crypto.dart';
 
 class StorageService {
   static const String _makinaKey = 'makina_data';

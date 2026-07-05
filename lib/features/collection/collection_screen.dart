@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
-import '../data/quest_data.dart';
-import '../models/makina.dart';
+import '../../providers/game_provider.dart';
+import '../../shared/data/quest_data.dart';
+import '../../shared/models/makina.dart';
 
 class CollectionScreen extends StatefulWidget {
   const CollectionScreen({super.key});

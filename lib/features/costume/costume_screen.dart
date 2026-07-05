@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
-import '../models/item.dart';
+import '../../providers/game_provider.dart';
+import '../../shared/models/item.dart';
 
 // コスチュームデータ
 class Costume {

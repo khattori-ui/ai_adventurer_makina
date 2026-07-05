@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/game_provider.dart';
-import '../data/story_data.dart';
+import '../../providers/game_provider.dart';
+import '../../shared/data/story_data.dart';
 import 'story_screen.dart';
-import 'home_screen.dart';
+import '../home/home_screen.dart';
 
 class TitleScreen extends StatefulWidget {
   const TitleScreen({super.key});

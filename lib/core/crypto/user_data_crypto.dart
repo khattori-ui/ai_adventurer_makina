@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../models/makina.dart';
+import '../../shared/models/makina.dart';
 import 'encryption_service.dart';
 
 /// users ドキュメント / ローカルセーブ向けの会話メモリ暗号化
